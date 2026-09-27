@@ -1,0 +1,45 @@
+# Shared defaults. Every other config `extends: base.yaml` and overrides a few keys.
+# Override anything from the CLI with --set key.sub=value (YAML-typed).
+name: base
+runs_root: runs
+device: auto          # cuda if available, else cpu
+dtype: float32
+
+model:
+  widths: [8, 8, 8, 8]     # H_0 (input), hidden..., H_L (output); L = 3 weight matrices
+  init_scale: 0.01         # W_l ~ N(0, init_scale^2); small init = saddle-to-saddle regime for GD
+  seed: 0                  # init seed (shared across optimizers so trajectories start identically)
+
+data:
+  n: 1024                  # samples; nβ defaults to n / log n
+  singular_values: [4.0, 2.0, 1.0, 0.5]   # target spectrum, rank 4, condition number 8
+  seed: 0                  # target + data seed
+
+train:
+  steps: 20000
+  log_every: 20            # s_i(t), loss, layer norms are logged this often
+  n_checkpoints: 40        # log-spaced parameter checkpoints for LLC estimation
+  extra_checkpoints: predicted   # add a dense band around theory-predicted escape/saturation times
+  verbose: false
+
+optimizer:                 # see muon_llc.optim.build_optimizer
+  name: gd                 # gd | spectral
+  lr: 0.05
+
+llc:
+  nbeta: null              # null -> n / log n
+  nbeta_ladder: {n: 8, lo: 0.1, hi: 10.0}   # MALA rungs, multiplicative around nbeta
+  gamma: 10.0              # headline localiser; resolution scale is gamma / nbeta
+  gamma_sweep: [1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0]   # the resolution axis
+  estimators: [sgld, mala, surrogate]   # see muon_llc.llc for what each column means
+  hessian: true            # exact Hessian soft-rank baseline at each checkpoint
+  checkpoints: all         # all | {max: K} | {every: k} | [steps]
+  resolution_sweep_checkpoints: all    # none | all | {max: K} | [steps]
+  seed: 0
+  sgld: {eps: 5.0e-4, n_chains: 16, n_burnin: 200, n_draws: 1000, batch_size: 128}
+  mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 300, n_draws: 1000, target_accept: 0.574,
+         fit_min_var_over_mean: 0.0, n_boot: 200}
+
+wandb:
+  enabled: false
+  project: muon-llc

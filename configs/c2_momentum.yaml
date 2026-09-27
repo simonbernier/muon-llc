@@ -1,0 +1,23 @@
+# C2: momentum only (exact orthogonalisation, no weight decay).
+# A5: uniform growth preserved under alignment; overshoot at saturation gives ±lr steps,
+# i.e. residual oscillation amplitude ∝ lr. Observables: uniformity ratio, residual amplitude.
+extends: base.yaml
+name: c2_momentum
+optimizer:
+  name: spectral
+  lr: 0.005
+  momentum: 0.0
+  nesterov: true
+  orth: exact
+  weight_decay: 0.0
+train:
+  steps: 4000
+  n_checkpoints: 12
+  extra_checkpoints: []
+sweep:
+  grid:
+    optimizer.momentum: [0.0, 0.5, 0.9, 0.95, 0.99]
+    model.init_scale: [0.001, 0.01, 0.1]
+    optimizer.lr: [0.001, 0.003, 0.01]
+  llc: false               # singular-value observables only by default (set true to estimate λ too)
+  llc_checkpoints: {max: 6}

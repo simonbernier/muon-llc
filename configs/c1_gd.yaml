@@ -1,0 +1,8 @@
+# C1(a): gradient descent from small init. Prediction (A4): staircase in lambda(t).
+extends: base.yaml
+name: c1_gd
+optimizer:
+  name: gd
+  lr: 0.05
+train:
+  steps: 20000

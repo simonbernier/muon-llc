@@ -1,0 +1,23 @@
+# C2: decoupled weight decay only (exact orthogonalisation, no momentum).
+# A5: per-layer spectral norm equilibrates at 1/lambda_wd, so product singular values cap at
+# min(s_i, lambda_wd^-L), independent of lr. Observable: final s_i vs prediction; fit of
+# log(final s_1) vs log(lambda_wd) above threshold should have slope -L.
+extends: base.yaml
+name: c2_weight_decay
+optimizer:
+  name: spectral
+  lr: 0.003
+  momentum: 0.0
+  orth: exact
+  weight_decay: 0.5
+train:
+  steps: 20000
+  n_checkpoints: 12
+  extra_checkpoints: []
+sweep:
+  grid:
+    optimizer.weight_decay: [0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.2, 1.5]
+    model.depth: [2, 3, 4]                 # sets widths = [8] * (depth + 1)
+    optimizer.lr: [0.001, 0.003, 0.01]
+  llc: false
+  llc_checkpoints: {max: 4}

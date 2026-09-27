@@ -1,0 +1,12 @@
+# B2: static DLN calibration. Construct balanced weights with product = top-r truncation of A*
+# (no training), estimate lambda with the MALA ladder over a gamma sweep, compare with Aoyagi.
+extends: base.yaml
+name: b2_static
+static:
+  ranks: [0, 1, 2, 3, 4]
+  gammas: [0.1, 0.3, 1.0, 3.0, 10.0, 30.0, 100.0]
+  nbeta_multipliers: [1.0, 3.0, 10.0]   # repeat the sweep at these multiples of n/log n:
+                                        # the estimate should converge to Aoyagi as gamma/nbeta -> 0
+llc:
+  estimators: [mala]
+  mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 400, n_draws: 1500}

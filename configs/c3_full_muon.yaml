@@ -1,0 +1,14 @@
+# C3: the standard Muon recipe: Nesterov momentum 0.95 + Newton-Schulz k = 5 + decoupled wd.
+# wd = 0.1 puts the cap lambda_wd^-3 = 1000 far above the target spectrum (cap inactive).
+extends: base.yaml
+name: c3_full_muon
+optimizer:
+  name: spectral
+  lr: 0.005
+  momentum: 0.95
+  nesterov: true
+  orth: ns
+  ns_steps: 5
+  weight_decay: 0.1
+train:
+  steps: 4000

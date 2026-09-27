@@ -1,0 +1,23 @@
+# Reduced end-to-end run on CPU (minutes): B2 at three ranks, C1 GD + spectral, both estimators.
+extends: base.yaml
+name: smoke
+runs_root: runs/smoke
+train:
+  steps: 8000
+  n_checkpoints: 12
+  log_every: 20
+static:
+  ranks: [0, 2, 4]
+  gammas: [1.0, 10.0, 100.0]
+  nbeta_multipliers: [1.0]
+llc:
+  nbeta_ladder: {n: 5, lo: 0.1, hi: 10.0}
+  gamma: 10.0
+  gamma_sweep: [1.0, 10.0, 100.0, 1000.0]
+  checkpoints: {max: 12}
+  resolution_sweep_checkpoints: all
+  sgld: {eps: 5.0e-4, n_chains: 6, n_burnin: 100, n_draws: 400, batch_size: 128}
+  mala: {eps0: 1.0e-3, n_chains: 6, n_burnin: 200, n_draws: 400, n_boot: 100}
+smoke:
+  spectral_steps: 2000
+  spectral_lr: 0.005
