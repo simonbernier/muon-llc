@@ -28,10 +28,46 @@ estimate can be checked against theory before it is trusted.
 
 ## Findings
 
-<!-- FINDINGS:BEGIN -->
-Results are being regenerated on the unified code; this section is filled in from the reports
-once the runs finish.
-<!-- FINDINGS:END -->
+Short version; the two reports have the tables, the figures and the limits.
+
+**Deep linear networks** ([report](results/dln/REPORT.md))
+
+- GD learns the four singular values of the target one at a time (steps 240, 540, 1040, 2780).
+  Spectral GD and full Muon grow them together and have all four within a factor two of each
+  other in time (steps 133 to 252, and 160 to 300).
+- λ̂ of the function the network computes rises in four separate steps under GD and in a single
+  rise under spectral GD and Muon. All three end at the same value.
+- Of Muon's ingredients, the number of Newton–Schulz steps decides whether growth stays uniform:
+  with k = 2 the staircase returns above a condition number of about 6, with k = 3 above 24, and
+  with Muon's k = 5 not at all up to 128. Weight decay caps the singular values of the product at
+  λ_wd^(−L) to four digits. Momentum does not change uniformity.
+- Not established: the learning coefficient of the training loss on a plateau (the plateau is a
+  saddle, and the sampler either leaves it or is held too tightly to see the flat directions),
+  and absolute agreement with Aoyagi's values (the estimates read 2 low at the chain lengths
+  used and 1.6 low with chains eight times longer; the spacing between ranks is right to 0.4).
+
+**Toy model of superposition** ([report](results/tms/REPORT.md))
+
+- Chen et al. (2023) reproduces: critical points, losses, Table K.1, SGD plateaus on the k-gons.
+- Under spectral GD, Muon and AdamW the trajectories sit on the same k-gon plateaus as under
+  SGD, for a shorter time. Muon does not remove the plateaus here.
+- Of 1054 transitions (16 optimizer arms from the standard initialisation, four more from
+  posterior samples), none lowers the loss while lowering λ beyond the error of the estimate.
+  Twelve kinds of transition occur only under the non-SGD optimizers, and all twelve raise λ.
+- The optimizers differ in where runs end: a 5- or 5⁺-gon in 63 to 84 of 200 runs under AdamW,
+  22 to 64 under Muon, 35 to 54 under spectral GD, 18 under SGD.
+- The sampled posterior switches from the 5-gon to the 6-gon at about half the sample size the
+  free-energy formula predicts (300 to 400 against 601).
+
+**Across the two.** In the linear network Muon skips the plateaus GD rests on. In the
+superposition model it visits the same plateaus as SGD. The first is what the theory predicts:
+those plateaus come from the spread of the gradient's singular values, which orthogonalisation
+removes. Why the second differs has not been tested. A candidate: W there is 2 × 6, so its
+gradient has only two singular values to equalise, and the bias is not orthogonalised at all.
+
+In neither testbed did any optimizer produce a transition against the ordering singular learning
+theory expects. In both, estimating λ at a saddle is the weak point: the chain leaves, and the
+number it reports is the depth of the basin below.
 
 ## Quickstart
 
@@ -82,7 +118,9 @@ at a time with `--stages`:
 Tiny models are bound by per-operation overhead, not arithmetic, so the GPU only pays where the
 batch is large. Sampling (thousands of chains in one tensor) runs on the GPU; single-run
 training loops and NUTS (JAX has no CUDA build on native Windows) run on the CPU. The runbook
-picks the device per stage and records it with the timings in `runs/logs/timings.json`.
+picks the device per stage and records it with the timings in `runs/logs/timings.json`. On a
+desktop with an RTX 4070 the whole run takes 85 minutes (17 for the DLN stage, 69 for the TMS
+stages).
 
 ### On a rented Linux GPU
 
