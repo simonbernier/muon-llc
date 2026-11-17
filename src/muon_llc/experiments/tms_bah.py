@@ -28,14 +28,16 @@ from ..tms.transitions import label_runs, summarize
 
 
 def llc_table(path: Path | None) -> tuple[dict, dict, dict]:
-    """name -> (lambda, err, source). Theory first, then our estimate, then the paper's."""
+    """name -> (lambda, err, source). Theory first, then our estimate (error = standard error
+    over kept chains), then the paper's Table K.1 (error = their std over chains)."""
     lam, err, src = {}, {}, {}
     ours = pd.read_csv(path).set_index("name") if path is not None and path.exists() else None
     for name in by_name():
         if name in THEORY_LLC:
             lam[name], err[name], src[name] = THEORY_LLC[name], 0.0, "theory"
         elif ours is not None and name in ours.index and np.isfinite(ours.loc[name, "llc_hat"]):
-            lam[name], err[name], src[name] = ours.loc[name, "llc_hat"], ours.loc[name, "llc_std"], "ours"
+            sem = ours.loc[name, "llc_std"] / np.sqrt(max(ours.loc[name, "chains_kept"], 1))
+            lam[name], err[name], src[name] = ours.loc[name, "llc_hat"], sem, "ours"
         else:
             lam[name], err[name], src[name] = *PAPER_LLC_HAT[name], "paper"
     return lam, err, src
@@ -99,6 +101,9 @@ def main(argv=None):
                                 lam_src=f"{src.get(a, '?')}/{src.get(b, '?')}", **verdict(a, b, lam, err)))
     arms = pd.DataFrame(arm_rows)
     trans = pd.DataFrame(tr_rows)
+    if len(trans):
+        sgd_pairs = {(r.alpha, r.beta) for r in trans.itertuples() if r.arm == "sgd"}
+        trans["seen_under_sgd"] = [(r.alpha, r.beta) in sgd_pairs for r in trans.itertuples()]
     arms.to_csv(out / f"{args.prefix}arms_summary.csv", index=False)
     trans.to_csv(out / f"{args.prefix}transitions.csv", index=False)
     pd.set_option("display.width", 250, "display.max_columns", 30, "display.max_colwidth", 90)
