@@ -25,7 +25,6 @@ import torch
 from ..optim import build_optimizer
 from .model import TMSProblem, join, split, tms_loss
 
-
 MUON_BIAS_DEFAULT = {"name": "adamw", "lr": 1e-3, "weight_decay": 0.0}
 
 
