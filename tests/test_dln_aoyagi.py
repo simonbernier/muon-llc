@@ -30,7 +30,8 @@ def test_depth_two_matches_aoyagi_watanabe():
         ([1, 1, 1], 0, Fraction(1, 2), 2),  # (ab)^2: normal crossing, lambda 1/2, m 2
         ([2, 1, 2], 0, Fraction(1), 2),  # |u|^2 s^2 ... two-dim factors: 1 with m 2
         ([1, 2, 1], 0, Fraction(1, 2), 1),  # (a.b)^2 with a,b in R^2: smooth hypersurface
-        ([1, 1, 1, 1], 0, Fraction(1, 2), None),  # (abcd)^2
+        ([1, 1, 1, 1], 0, Fraction(1, 2), 3),  # (abc)^2: three crossing hyperplanes, m 3
+        ([1, 1, 1, 1, 1], 0, Fraction(1, 2), 4),  # (abcd)^2: m 4
         ([2, 1, 1, 2], 0, Fraction(1, 2), None),
     ],
 )

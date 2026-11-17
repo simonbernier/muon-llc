@@ -13,20 +13,24 @@ Formula (as implemented here; see the note below).
     where S = sum_{i in Sigma} Delta_i, and let a = S mod ell. Then
         lambda = a (ell - a) / (4 ell) + (r (M + N) - r^2) / 2
                  + S^2 / (4 ell) - (1/4) sum_{i in Sigma} Delta_i^2
-        m      = 1 if a == 0 else 2.
+        m      = a (ell - a) + 1.
 
-NOTE ON PROVENANCE. arxiv.org and the journal sites were unreachable from the
-machine this was written on, so the formula above is reconstructed from memory
-and verified against independent special cases in tests/test_aoyagi.py:
+Provenance. The formula for lambda is Theorem 1 of Appendix I in Lau, Furman, Wang, Murfet, Wei,
+"The Local Learning Coefficient: A Singularity-Aware Complexity Measure" (AISTATS 2025,
+arXiv 2308.12108), which restates Aoyagi (2024), "Consideration on the learning efficiency of
+multiple-layered neural networks with linear units", Neural Networks 172. There it reads
+    lambda = (r (M + N) - r^2) / 2 + a (ell - a) / (4 ell)
+             - (ell (ell - 1) / 4) (S / ell)^2 + (1/2) sum_{i<j in Sigma} Delta_i Delta_j,
+which is the expression above after expanding sum_{i<j} Delta_i Delta_j = (S^2 - sum Delta_i^2) / 2.
+Their Sigma conditions use strict inequalities where this module uses <=; lambda is continuous
+across the boundary, so ties give the same value (tests/test_dln_aoyagi.py).
+
+The multiplicity m = a (ell - a) + 1 is Aoyagi's; the restatement above does not print it, so it
+is checked here by hand on monomials: widths (1, ..., 1) with r = 0 give the loss (w_1 ... w_L)^2,
+whose learning coefficient is 1/2 with multiplicity L (L = 2, 3, 4 in the tests). Further checks:
   * L = 1 (a regular model): lambda = M N / 2 for every rank r;
-  * L = 2 reproduces the reduced-rank-regression result of Aoyagi & Watanabe
-    (2005), including the +1/8 parity correction and the boundary cases;
-  * scalar toys whose RLCT can be computed by hand (e.g. widths (1,1,1),
-    r = 0 gives lambda = 1/2, m = 2 for the normal crossing (ab)^2);
-  * the value is continuous across the boundary of the Sigma condition, so
-    the selection is robust to ties.
-Please cross-check against Aoyagi (2024) Theorem 1 / Furman & Lau (2024)
-before quoting the multiplicity m; lambda is the quantity Phase C uses.
+  * L = 2 reproduces the reduced-rank-regression result of Aoyagi & Watanabe (2005), including
+    the +1/8 parity correction and the boundary cases.
 """
 
 from __future__ import annotations
@@ -99,7 +103,7 @@ def dln_learning_coefficient(widths: Sequence[int], rank: int) -> LearningCoeffi
         + Fraction(S * S, 4 * ell)
         - Fraction(sum(d * d for d in sigma), 4)
     )
-    m = 1 if a == 0 else 2
+    m = a * (ell - a) + 1
     return LearningCoefficient(lam, m, ell, a, sigma)
 
 
