@@ -1,6 +1,6 @@
 """Build every TMS figure from saved runs.
 
-    python -m muon_llc.experiments.tms_figures --arms runs/tms/arms --out results/tms \
+    python -m muon_llc.tms.experiments.figures --arms runs/tms/arms --out results/tms \
         --headline sgd spectral_lr3e-4 muon_lr3e-4 adamw_lr3e-4
 """
 
@@ -12,10 +12,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..tms import plots
-from ..tms.analysis import load_run
-from ..tms.transitions import label_runs, summarize
-from .tms_bah import llc_table
+from .. import plots
+from ..analysis import load_run
+from ..transitions import label_runs, summarize
+from .bah import llc_table
 
 
 def _with_llc(run, tag="llc"):
@@ -70,9 +70,15 @@ def main(argv=None):
 
     tr_path = out / "transitions.csv"
     if "graph" not in args.skip and tr_path.exists():
-        trans = pd.read_csv(tr_path)
-        arms = [(r["name"], r["label"], r["color"]) for r in runs]
-        print(plots.fig_transition_graph(trans, lam, err, arms, fig / "transition_graph.png"))
+        try:
+            trans = pd.read_csv(tr_path)
+        except pd.errors.EmptyDataError:  # written by bah when no arm had a transition
+            trans = pd.DataFrame()
+        if len(trans):
+            arms = [(r["name"], r["label"], r["color"]) for r in runs]
+            print(plots.fig_transition_graph(trans, lam, err, arms, fig / "transition_graph.png"))
+        else:
+            print("no transitions: transition graph skipped")
 
     if "occupancy" not in args.skip:
         occs = []

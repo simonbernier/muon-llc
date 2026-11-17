@@ -11,7 +11,13 @@ the prior constant. Verdict per transition:
     violation      dL < 0, dlambda < 0 beyond its error and no crossing either way
     uphill         dL > 0 (not a transition the BAH speaks about; reported separately)
 
-Writes arms_summary.csv, transitions.csv into --out.
+For each arm that also has trajectory estimates (`llc.npz` from `experiments.estimate`): the
+on-trajectory lambda-hat before and after every detected transition of the estimated seeds.
+lam_before / lam_after are the medians of lambda-hat over the estimated checkpoints inside the
+plateau before / after the transition, rise is their difference (`transitions.llc_jumps`).
+
+Writes arms_summary.csv, transitions.csv and (unless --no-jumps or no arm has estimates)
+trajectory_llc_jumps.csv into --out, each with --prefix in front.
 """
 
 from __future__ import annotations
@@ -22,9 +28,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..tms.analysis import load_run
-from ..tms.critical_points import PAPER_LLC_HAT, THEORY_LLC, by_name, critical_n
-from ..tms.transitions import label_runs, summarize
+from ..analysis import ARM_STYLE, load_run
+from ..critical_points import PAPER_LLC_HAT, THEORY_LLC, by_name, critical_n
+from ..transitions import label_runs, llc_jumps, summarize
+
+JUMP_COLUMNS = ["arm", "seed", "alpha", "beta", "lam_before", "lam_after", "rise"]
 
 
 def llc_table(path: Path | None) -> tuple[dict, dict, dict]:
@@ -64,6 +72,24 @@ def verdict(a: str, b: str, lam, err) -> dict:
     return dict(dL=dL, dlam=dlam, dlam_err=derr, n_cr=n1, n_cr_noconst=n0, verdict=v)
 
 
+def trajectory_llc_jumps(arms_dir: Path, min_ckpts: int = 3, gap: int = 2, tag: str = "llc") -> pd.DataFrame:
+    """One row per detected transition of every seed with trajectory estimates, for each arm
+    directory under `arms_dir` holding run.npz and `<tag>.npz` (see the module docstring for the
+    definition). Arms are ordered SGD, spectral GD, Muon, AdamW, then by name."""
+    rows = []
+    for d in sorted(Path(arms_dir).iterdir()):
+        if not ((d / "run.npz").exists() and (d / f"{tag}.npz").exists()):
+            continue
+        run = load_run(d)
+        z = np.load(d / f"{tag}.npz")
+        labels, _ = label_runs(run["thetas"][:, z["run_idx"]])
+        family = list(ARM_STYLE).index(run["cfg"]["opt"]["name"])
+        for row in llc_jumps(labels, z["ck_idx"], z["llc"], z["run_idx"], min_ckpts=min_ckpts, gap=gap):
+            rows.append((family, dict(arm=run["name"], **row)))
+    rows.sort(key=lambda fr: (fr[0], fr[1]["arm"]))  # stable: seeds and transitions keep their order
+    return pd.DataFrame([r for _, r in rows], columns=JUMP_COLUMNS)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--arms", default="runs/tms/arms")
@@ -72,6 +98,8 @@ def main(argv=None):
     ap.add_argument("--min-ckpts", type=int, default=3)
     ap.add_argument("--gap", type=int, default=2)
     ap.add_argument("--prefix", default="")
+    ap.add_argument("--llc-tag", default="llc", help="name of the trajectory estimates (<tag>.npz)")
+    ap.add_argument("--no-jumps", action="store_true", help="do not write trajectory_llc_jumps.csv")
     args = ap.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -106,12 +134,22 @@ def main(argv=None):
         trans["seen_under_sgd"] = [(r.alpha, r.beta) in sgd_pairs for r in trans.itertuples()]
     arms.to_csv(out / f"{args.prefix}arms_summary.csv", index=False)
     trans.to_csv(out / f"{args.prefix}transitions.csv", index=False)
+    jumps = None
+    if not args.no_jumps and any(Path(args.arms).glob(f"*/{args.llc_tag}.npz")):
+        jumps = trajectory_llc_jumps(Path(args.arms), args.min_ckpts, args.gap, args.llc_tag)
+        jumps.to_csv(out / f"{args.prefix}trajectory_llc_jumps.csv", index=False)  # header only if no transition
     pd.set_option("display.width", 250, "display.max_columns", 30, "display.max_colwidth", 90)
     print(arms.drop(columns=["label"]).to_string(index=False, float_format=lambda x: f"{x:.3g}"))
     if len(trans):
         piv = trans.pivot_table(index="arm", columns="verdict", values="count", aggfunc="sum", fill_value=0)
         print("\ntransitions by verdict (counts over runs):\n", piv.to_string())
         print("\n", trans.to_string(index=False, float_format=lambda x: f"{x:.3g}"))
+    if jumps is not None and len(jumps):
+        by_arm = jumps.groupby("arm", sort=False)["rise"]
+        stats = pd.DataFrame({"transitions": by_arm.size(), "rises": by_arm.agg(lambda x: int((x > 0).sum())),
+                              "median_rise": by_arm.median(), "min_rise": by_arm.min()})
+        print("\non-trajectory lambda-hat across transitions (estimated seeds):\n",
+              stats.to_string(float_format=lambda x: f"{x:.3g}"))
 
 
 if __name__ == "__main__":

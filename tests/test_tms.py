@@ -151,3 +151,121 @@ def test_default_bias_rule_muon_adamw_spectral_sgd():
     assert isinstance(spec[1], torch.optim.SGD)
     explicit = build_optimizers(W, b, dict(name="muon", lr=3e-4, orth="ns", bias=dict(name="gd", lr=0.005)))
     assert isinstance(explicit[1], torch.optim.SGD)
+
+
+def test_llc_jumps_medians_inside_plateaus():
+    from muon_llc.tms.transitions import llc_jumps
+
+    #        ckpt: 0..5 "4+-", 6..7 other, 8..13 "4", 14 other, 15..19 "4" (same plateau), 20..24 "5"
+    lab = np.array(["4+-"] * 6 + ["other"] * 2 + ["4"] * 6 + ["other"] + ["4"] * 5 + ["5"] * 5, dtype=object)
+    labels = np.stack([lab, np.array(["6"] * 25, dtype=object)], axis=1)  # run 1 never moves
+    ck_idx = np.arange(0, 25, 3)  # 0 3 6 9 12 15 18 21 24
+    llc = np.zeros((len(ck_idx), 2))
+    llc[:, 0] = [1.0, 3.0, 99.0, 4.0, np.nan, 5.0, 9.0, 7.0, 8.0]
+    rows = llc_jumps(labels, ck_idx, llc, seeds=[7, 11])
+    assert [(r["seed"], r["alpha"], r["beta"]) for r in rows] == [(7, "4+-", "4"), (7, "4", "5")]
+    # "4+-" holds ckpts 0, 3; "4" holds 9, (12 is nan), 15, 18; "5" holds 21, 24; ckpt 6 is off-plateau
+    assert rows[0]["lam_before"] == pytest.approx(2.0) and rows[0]["lam_after"] == pytest.approx(5.0)
+    assert rows[0]["rise"] == pytest.approx(3.0)
+    assert rows[1]["lam_before"] == pytest.approx(5.0) and rows[1]["rise"] == pytest.approx(2.5)
+    # no estimated checkpoint inside a plateau -> nan, not an error
+    sparse = llc_jumps(labels, np.array([0, 24]), llc[[0, 8]], seeds=[7, 11])
+    assert np.isnan(sparse[0]["lam_after"]) and np.isnan(sparse[0]["rise"])
+
+
+def test_bah_writes_trajectory_llc_jumps(tmp_path):
+    import json
+
+    import pandas as pd
+
+    from muon_llc.tms.experiments import bah
+
+    cps = by_name()
+    K = 12
+    thetas = np.stack([np.stack([cps["4+"].theta] * 6 + [cps["5"].theta] * 6),  # run 0: 4+ -> 5
+                       np.stack([cps["6"].theta] * K),  # run 1: no transition
+                       np.stack([cps["4"].theta] * 6 + [cps["5"].theta] * 6)], axis=1)  # run 2: not estimated
+    for name, opt in (("sgd", {"name": "gd", "lr": 0.005}), ("adamw_lr3e-4", {"name": "adamw", "lr": 3e-4})):
+        d = tmp_path / "arms" / name
+        d.mkdir(parents=True)
+        np.savez(d / "run.npz", epochs=10 * np.arange(K), thetas=thetas.astype(np.float32),
+                 path_len=np.cumsum(np.ones((K, 3)), axis=0), steps_per_epoch=50)
+        (d / "config.json").write_text(json.dumps({"opt": opt, "n": 100, "c": 6, "runs": 3, "data_seed": 0}),
+                                       encoding="utf-8")
+    d = tmp_path / "arms" / "sgd"  # only SGD has estimates
+    ck = np.arange(0, K, 3)  # 0 3 | 6 9
+    np.savez(d / "llc.npz", ck_idx=ck, run_idx=np.arange(2), llc=np.array([[4.0, 8.0], [5.0, 8.0], [7.0, 8.0],
+                                                                         [7.5, 8.0]]))
+    out = tmp_path / "out"
+    bah.main(["--arms", str(tmp_path / "arms"), "--out", str(out), "--table", str(tmp_path / "none.csv")])
+    jumps = pd.read_csv(out / "trajectory_llc_jumps.csv", dtype={"alpha": str, "beta": str})
+    assert list(jumps.columns) == ["arm", "seed", "alpha", "beta", "lam_before", "lam_after", "rise"]
+    assert len(jumps) == 1
+    row = jumps.iloc[0]
+    assert (row.arm, row.seed, row.alpha, row.beta) == ("sgd", 0, "4+", "5")
+    assert (row.lam_before, row.lam_after, row.rise) == pytest.approx((4.5, 7.25, 2.75))
+    assert len(pd.read_csv(out / "transitions.csv")) == 4  # both arms: 4+ -> 5 and 4 -> 5
+
+
+needs_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+
+
+@needs_cuda
+@pytest.mark.parametrize("opt", [
+    dict(name="gd", lr=0.005),
+    dict(name="adamw", lr=3e-4, weight_decay=0.01),
+    dict(name="spectral", lr=3e-4, orth="exact", bias=dict(name="gd", lr=0.005)),
+    dict(name="muon", lr=3e-4, orth="ns", ns_steps=5, momentum=0.95, nesterov=True, ns_dtype=None),
+], ids=lambda o: o["name"])
+@pytest.mark.parametrize("per_run", [True, False], ids=["per-run data", "shared data"])
+def test_training_agrees_between_cpu_and_cuda(opt, per_run):
+    from muon_llc.tms.train import train_batched
+
+    th = init_kgon(5, seed=3)
+    runs = []
+    for device in ("cpu", "cuda"):
+        p = make_problem(200, seed=11, n_datasets=5 if per_run else None, device=device)
+        assert p.device.type == device
+        runs.append(train_batched(p, th, opt, epochs=3, ckpt_every=1, seed=2))
+    cpu, gpu = runs
+    assert isinstance(gpu.thetas, np.ndarray) and gpu.thetas.shape == cpu.thetas.shape == (4, 5, 18)
+    assert np.abs(cpu.thetas - gpu.thetas).max() < 1e-9
+    assert np.abs(cpu.path_len - gpu.path_len).max() < 1e-9
+    assert not np.array_equal(cpu.thetas[0], cpu.thetas[-1])
+
+
+@needs_cuda
+def test_float32_newton_schulz_agrees_between_devices_to_single_precision():
+    """Standard Muon orthogonalises in float32; CPU and CUDA round those products differently and
+    the small-singular-value gain of Newton-Schulz amplifies it, so the agreement is looser."""
+    from muon_llc.tms.train import train_batched
+
+    opt = dict(name="muon", lr=3e-4, orth="ns", ns_steps=5, momentum=0.95, nesterov=True)
+    th = init_kgon(5, seed=3)
+    out = [train_batched(make_problem(200, seed=11, n_datasets=5, device=d), th, opt, epochs=3, ckpt_every=1,
+                         seed=2).thetas for d in ("cpu", "cuda")]
+    assert np.abs(out[0] - out[1]).max() < 1e-5
+
+
+@needs_cuda
+def test_sgld_llc_agrees_between_cpu_and_cuda():
+    from muon_llc.tms.llc import sgld_llc
+
+    centres = np.stack([by_name()[k].theta for k in ("6", "5", "4")])
+    res = []
+    for device in ("cpu", "cuda"):
+        p = make_problem(300, seed=5, n_datasets=3, device=device)
+        res.append(sgld_llc(p, centres, n_steps=40, n_chains=2, data_index=np.arange(3), seed=1))
+    assert np.allclose(res[0].llc_chain, res[1].llc_chain, rtol=0, atol=1e-8)
+    assert np.allclose(res[0].loss0, res[1].loss0, rtol=0, atol=1e-12)
+
+
+@needs_cuda
+def test_polar_exact_on_cuda_matches_cpu():
+    from muon_llc.optim import polar_exact
+
+    G = torch.randn(7, 2, 6, dtype=torch.float64, generator=torch.Generator().manual_seed(0))
+    O = polar_exact(G.cuda())
+    assert O.is_cuda and torch.allclose(O.cpu(), polar_exact(G), atol=1e-13)
+    big = torch.randn(80, 80, dtype=torch.float64, generator=torch.Generator().manual_seed(1))  # on-device SVD
+    assert torch.allclose(polar_exact(big.cuda()).cpu(), polar_exact(big), atol=1e-9)

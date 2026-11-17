@@ -5,6 +5,10 @@ gradients do not mix, and every optimizer used here acts per run (SGD/AdamW elem
 spectral optimizers per matrix). The same `seed` gives the same minibatch order for every
 optimizer, so arms differ only in the update rule.
 
+Parameters, data and the step loop live on `problem.device`. The minibatch order is always drawn
+from a CPU generator and moved, so a seed gives the same run on every device up to rounding;
+checkpoints and path lengths come back as CPU numpy arrays.
+
 Optimizer config:
     {"name": "sgd" | "adamw", "lr": ..., ...}                     both W and b under one rule
     {"name": "spectral" | "muon", "lr": ..., ..., "bias": {...}}  W under SpectralOptimizer, b under
@@ -51,17 +55,18 @@ def train_batched(problem: TMSProblem, theta0: torch.Tensor, opt_cfg: dict, epoc
                   verbose: bool = False) -> TMSRun:
     R = theta0.shape[0]
     n, r, c = problem.n, problem.r, problem.c
-    W0, b0 = split(theta0.to(problem.dtype), r, c)
+    device = problem.device
+    W0, b0 = split(theta0.to(device=device, dtype=problem.dtype), r, c)
     W = W0.clone().requires_grad_(True)
     b = b0.clone().requires_grad_(True)
     opts = build_optimizers(W, b, opt_cfg)
-    g = torch.Generator().manual_seed(int(seed))
+    g = torch.Generator().manual_seed(int(seed))  # CPU stream: the same minibatch order on every device
     spe = n // batch_size
-    ck_epochs, cks, plen = [0], [join(W, b).detach().clone()], [torch.zeros(R, dtype=problem.dtype)]
-    path = torch.zeros(R, dtype=problem.dtype)
+    path = torch.zeros(R, dtype=problem.dtype, device=device)
     prev = join(W, b).detach().clone()
+    ck_epochs, cks, plen = [0], [prev], [path.clone()]
     for ep in range(1, epochs + 1):
-        perm = torch.argsort(torch.rand(R, n, generator=g), dim=1)[:, : spe * batch_size]
+        perm = torch.argsort(torch.rand(R, n, generator=g), dim=1)[:, : spe * batch_size].to(device)
         if problem.per_run:
             feat_ep = torch.gather(problem.feat, 1, perm).view(R, spe, batch_size)
             mu_ep = torch.gather(problem.mu, 1, perm).view(R, spe, batch_size)
@@ -76,15 +81,15 @@ def train_batched(problem: TMSProblem, theta0: torch.Tensor, opt_cfg: dict, epoc
             for o in opts:
                 o.step()
             with torch.no_grad():
-                cur = join(W, b)
+                cur = join(W, b)  # a new tensor: later in-place optimizer steps do not touch it
                 path += (cur - prev).norm(dim=-1)
-                prev = cur.clone()
+                prev = cur
         if ep % ckpt_every == 0 or ep == epochs:
             ck_epochs.append(ep)
-            cks.append(prev.clone())
+            cks.append(prev)
             plen.append(path.clone())
             if verbose and (ep % (50 * ckpt_every) == 0):
                 print(f"epoch {ep:>6d}  median batch loss {loss.median().item():.4f}", flush=True)
-        if not torch.isfinite(prev).all():
+        if not torch.isfinite(prev).all():  # one device sync per epoch
             raise FloatingPointError(f"diverged at epoch {ep}")
-    return TMSRun(np.array(ck_epochs), torch.stack(cks).numpy(), torch.stack(plen).numpy(), spe)
+    return TMSRun(np.array(ck_epochs), torch.stack(cks).cpu().numpy(), torch.stack(plen).cpu().numpy(), spe)

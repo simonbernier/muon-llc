@@ -28,15 +28,16 @@ def arm_label(cfg: dict) -> tuple[str, str]:
     return f"{base} ({extra})", color
 
 
-def problem_of(cfg: dict) -> TMSProblem:
+def problem_of(cfg: dict, device=None) -> TMSProblem:
+    """The datasets a run was trained on, with the unscaled paper loss (None = CPU)."""
     return make_problem(cfg["n"], cfg["c"], seed=cfg["data_seed"], loss_scale=1.0,
-                        n_datasets=None if cfg.get("shared_data") else cfg["runs"])
+                        n_datasets=None if cfg.get("shared_data") else cfg["runs"], device=device)
 
 
 def load_run(d) -> dict:
     d = Path(d)
     z = np.load(d / "run.npz")
-    cfg = json.loads((d / "config.json").read_text())
+    cfg = json.loads((d / "config.json").read_text(encoding="utf-8"))
     label, color = arm_label(cfg)
     return dict(dir=d, name=d.name, cfg=cfg, epochs=z["epochs"], thetas=z["thetas"].astype(np.float64),
                 path_len=z["path_len"], steps_per_epoch=int(z["steps_per_epoch"]), label=label, color=color)

@@ -3,6 +3,9 @@
   occupancy : Fig. 2 (right). For each n and seed, NUTS-sample the posterior and record the
               share of samples in each region W_{k,sigma}.  -> occupancy.csv
   inits     : Fig. 3. Posterior samples at n = 100 to be used as initial points. -> inits.npy
+
+NUTS runs on whatever backend JAX finds (CUDA needs a CUDA build of jaxlib, which exists for
+Linux only); `--platform cpu|gpu` forces one. The backend in use is printed.
 """
 
 from __future__ import annotations
@@ -15,8 +18,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..tms.model import make_problem
-from ..tms.posterior import classify_hull, sample_posterior
+from ..model import make_problem
+from ..posterior import classify_hull, sample_posterior
 
 PHASES = ["4", "4+", "5", "5+", "6", "other"]
 
@@ -35,7 +38,14 @@ def main(argv=None):
     ap.add_argument("--nll-scale", type=float, default=1.0)
     ap.add_argument("--n-inits", type=int, default=400)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--platform", choices=["cpu", "gpu"], default=None, help="JAX platform (default: JAX's own)")
     args = ap.parse_args(argv)
+    import jax
+    import numpyro
+
+    if args.platform:
+        numpyro.set_platform(args.platform)
+    print(f"jax backend: {jax.default_backend()}  devices: {jax.devices()}", flush=True)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     if args.mode == "inits":

@@ -73,8 +73,12 @@ class TMSProblem:
         """Datasets of the given runs (index: (B,) long); identity for a shared dataset."""
         if not self.per_run:
             return self
-        index = torch.as_tensor(index, dtype=torch.long)
+        index = torch.as_tensor(index, dtype=torch.long, device=self.device)
         return TMSProblem(self.feat[index], self.mu[index], self.r, self.c, self.loss_scale)
+
+    def to(self, device) -> "TMSProblem":
+        """The same problem with its data on `device` (no copy if it is already there)."""
+        return TMSProblem(self.feat.to(device), self.mu.to(device), self.r, self.c, self.loss_scale)
 
     @property
     def dim(self) -> int:
@@ -107,13 +111,19 @@ class TMSProblem:
 
 
 def make_problem(n: int, c: int = 6, r: int = 2, seed: int = 0, loss_scale: float = 1.0,
-                 dtype=torch.float64, n_datasets: int | None = None) -> TMSProblem:
-    """One dataset (seed), or `n_datasets` datasets with seeds seed, seed+1, ... (one per run)."""
+                 dtype=torch.float64, n_datasets: int | None = None, device=None) -> TMSProblem:
+    """One dataset (seed), or `n_datasets` datasets with seeds seed, seed+1, ... (one per run).
+
+    The data are always drawn from CPU generators and then moved to `device` (None = CPU), so a
+    seed gives the same dataset on every device."""
     if n_datasets is None:
         feat, mu = sample_data(n, c, torch.Generator().manual_seed(int(seed)), dtype)
-        return TMSProblem(feat, mu, r, c, loss_scale)
-    pairs = [sample_data(n, c, torch.Generator().manual_seed(int(seed) + j), dtype) for j in range(n_datasets)]
-    return TMSProblem(torch.stack([p[0] for p in pairs]), torch.stack([p[1] for p in pairs]), r, c, loss_scale)
+        problem = TMSProblem(feat, mu, r, c, loss_scale)
+    else:
+        pairs = [sample_data(n, c, torch.Generator().manual_seed(int(seed) + j), dtype) for j in range(n_datasets)]
+        problem = TMSProblem(torch.stack([p[0] for p in pairs]), torch.stack([p[1] for p in pairs]), r, c,
+                             loss_scale)
+    return problem if device is None else problem.to(device)
 
 
 def kgon_vertices(k: int, rot: float = 0.0, pad_to: int | None = None, length: float = 1.0) -> np.ndarray:

@@ -81,5 +81,41 @@ def summarize(labels: np.ndarray, path_len: np.ndarray | None = None, min_ckpts:
     )
 
 
+def llc_jumps(labels: np.ndarray, ck_idx: np.ndarray, llc: np.ndarray, seeds=None,
+              path_len: np.ndarray | None = None, min_ckpts: int = 3, gap: int = 2) -> list[dict]:
+    """lambda-hat on either side of every dynamical transition.
+
+    labels (K, r) are the checkpoint labels of the r runs that have estimates, llc (k, r) the
+    estimates at checkpoints `ck_idx` (k,), `seeds` (r,) the run numbers to report (default 0..r-1).
+    For each consecutive pair of plateaus alpha -> beta of a run (`plateaus`, same `min_ckpts` and
+    `gap` as the transition tables):
+
+        lam_before = median of lambda-hat over the estimated checkpoints t with
+                     alpha.start <= t <= alpha.end (the whole plateau, including the short
+                     excursions to "other" that `gap` bridges)
+        lam_after  = the same over beta
+        rise       = lam_after - lam_before
+
+    Non-finite estimates (a diverged chain) are ignored; a plateau with no finite estimate inside
+    gives nan. Rows are dicts with seed, alpha, beta, lam_before, lam_after, rise.
+    """
+    ck_idx = np.asarray(ck_idx)
+    seeds = np.arange(labels.shape[1]) if seeds is None else np.asarray(seeds)
+
+    def med(p: Plateau, j: int) -> float:
+        x = llc[(ck_idx >= p.start) & (ck_idx <= p.end), j]
+        x = x[np.isfinite(x)]
+        return float(np.median(x)) if x.size else float("nan")
+
+    rows = []
+    for j in range(labels.shape[1]):
+        ps = plateaus(labels[:, j], None if path_len is None else path_len[:, j], min_ckpts, gap)
+        for a, b in zip(ps[:-1], ps[1:]):
+            before, after = med(a, j), med(b, j)
+            rows.append(dict(seed=int(seeds[j]), alpha=a.name, beta=b.name, lam_before=before,
+                             lam_after=after, rise=after - before))
+    return rows
+
+
 def seq_str(ps: list[Plateau]) -> str:
     return " -> ".join(p.name for p in ps) if ps else "(none)"

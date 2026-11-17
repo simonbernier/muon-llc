@@ -13,9 +13,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from ..tms.critical_points import PAPER_LLC_HAT, THEORY_LLC, critical_points
-from ..tms.llc import sgld_llc
-from ..tms.model import make_problem
+from ...config import get_device
+from ..critical_points import PAPER_LLC_HAT, THEORY_LLC, critical_points
+from ..llc import sgld_llc
+from ..model import make_problem
 
 # SGLD step sizes of Table K.1, by number of dead vertices phi (k >= 5 separately)
 PAPER_EPS = {4: 5e-7, 3: 1e-6, 2: 1e-6, 1: 5e-6, 0: 1e-5, "k5+": 5e-5}
@@ -30,9 +31,10 @@ def main(argv=None):
     ap.add_argument("--chains", type=int, default=10)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--device", default="auto", help="auto (cuda if available) | cpu | cuda")
     args = ap.parse_args(argv)
     torch.set_num_threads(args.threads)
-    problem = make_problem(args.n, seed=args.seed + 17)
+    problem = make_problem(args.n, seed=args.seed + 17, device=get_device({"device": args.device}))
     rows = []
     cps = critical_points()
     groups: dict[float, list] = {}
