@@ -23,8 +23,8 @@ def arm_label(cfg: dict) -> tuple[str, str]:
     extra = f"lr {opt['lr']:g}"
     if opt.get("weight_decay"):
         extra += f", wd {opt['weight_decay']:g}"
-    if opt.get("bias", {}).get("name") == "adamw":
-        extra += ", Adam bias"
+    if opt["name"] == "muon" and opt.get("bias", {}).get("name") == "gd":
+        extra += ", SGD bias"
     return f"{base} ({extra})", color
 
 

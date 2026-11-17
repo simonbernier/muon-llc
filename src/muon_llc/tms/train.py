@@ -8,8 +8,11 @@ optimizer, so arms differ only in the update rule.
 Optimizer config:
     {"name": "sgd" | "adamw", "lr": ..., ...}                     both W and b under one rule
     {"name": "spectral" | "muon", "lr": ..., ..., "bias": {...}}  W under SpectralOptimizer, b under
-                                                                  the `bias` rule (default: SGD at
-                                                                  `bias_lr`, no momentum)
+                                                                  the `bias` rule. Defaults: AdamW
+                                                                  (lr 1e-3, no decay) for "muon", the
+                                                                  usual practice; plain SGD at the
+                                                                  same lr for "spectral" (idealised
+                                                                  control)
 """
 
 from __future__ import annotations
@@ -21,6 +24,9 @@ import torch
 
 from ..optim import build_optimizer
 from .model import TMSProblem, join, split, tms_loss
+
+
+MUON_BIAS_DEFAULT = {"name": "adamw", "lr": 1e-3, "weight_decay": 0.0}
 
 
 @dataclass
@@ -35,7 +41,8 @@ def build_optimizers(W, b, cfg: dict) -> list[torch.optim.Optimizer]:
     cfg = dict(cfg)
     bias_cfg = cfg.pop("bias", None)
     if cfg["name"] in ("spectral", "muon"):
-        bias_cfg = dict(bias_cfg or {"name": "gd", "lr": cfg["lr"]})
+        default = MUON_BIAS_DEFAULT if cfg["name"] == "muon" else {"name": "gd", "lr": cfg["lr"]}
+        bias_cfg = dict(bias_cfg or default)
         return [build_optimizer([W], cfg), build_optimizer([b], bias_cfg)]
     return [build_optimizer([W, b], cfg)]
 

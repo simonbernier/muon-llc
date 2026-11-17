@@ -14,9 +14,9 @@ experiments as runnable configs. Everything is a `uv` project in PyTorch. Models
 ## TMS: dynamical vs Bayesian phase transitions under Muon
 
 `src/muon_llc/tms/` reproduces Chen et al. (2023), arXiv 2310.06301 (Toy Model of Superposition,
-r = 2, c = 6) and adds AdamW, spectral GD and Muon to its figures. Results, figures and the
+r = 2, c = 6) and adds AdamW, spectral GD and Muon (Muon on W, AdamW on the bias) to its figures. Results, figures and the
 Bayesian-antecedent analysis are in [`results/tms/REPORT.md`](results/tms/REPORT.md). In short:
-under every optimizer trajectories plateau on the same k-gon critical points, and none of the 925
+under every optimizer trajectories plateau on the same k-gon critical points, and none of the 980
 observed transitions lowers the loss while lowering the learning coefficient.
 
 | Path | Purpose |

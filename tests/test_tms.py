@@ -136,3 +136,18 @@ def test_per_run_datasets_match_single_dataset_runs():
     assert torch.allclose(multi.loss(th)[1], single.loss(th[1]))
     r = sgld_llc(multi, full.thetas[-1], n_steps=20, n_chains=2, data_index=np.arange(3), seed=0)
     assert np.allclose(r.loss0[1], float(single.loss(torch.tensor(full.thetas[-1, 1]))))
+
+
+def test_default_bias_rule_muon_adamw_spectral_sgd():
+    from muon_llc.optim import SpectralOptimizer
+    from muon_llc.tms.train import build_optimizers
+
+    W = torch.zeros(2, 6, requires_grad=True)
+    b = torch.zeros(6, requires_grad=True)
+    muon = build_optimizers(W, b, dict(name="muon", lr=3e-4, orth="ns", momentum=0.95, nesterov=True))
+    assert isinstance(muon[0], SpectralOptimizer) and isinstance(muon[1], torch.optim.AdamW)
+    assert muon[1].param_groups[0]["lr"] == 1e-3 and muon[1].param_groups[0]["weight_decay"] == 0.0
+    spec = build_optimizers(W, b, dict(name="spectral", lr=3e-4, orth="exact"))
+    assert isinstance(spec[1], torch.optim.SGD)
+    explicit = build_optimizers(W, b, dict(name="muon", lr=3e-4, orth="ns", bias=dict(name="gd", lr=0.005)))
+    assert isinstance(explicit[1], torch.optim.SGD)

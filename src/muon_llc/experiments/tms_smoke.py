@@ -13,7 +13,7 @@ from . import tms_bah, tms_estimate, tms_figures, tms_train
 ARMS = {
     "sgd": {"name": "gd", "lr": 0.005},
     "muon_lr3e-4": {"name": "muon", "lr": 3e-4, "orth": "ns", "ns_steps": 5, "momentum": 0.95,
-                    "nesterov": True, "bias": {"name": "gd", "lr": 0.005}},
+                    "nesterov": True},
 }
 
 
