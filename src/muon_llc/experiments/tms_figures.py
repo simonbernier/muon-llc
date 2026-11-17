@@ -75,8 +75,12 @@ def main(argv=None):
         print(plots.fig_transition_graph(trans, lam, err, arms, fig / "transition_graph.png"))
 
     if "occupancy" not in args.skip:
-        occ = pd.read_csv(out / "occupancy.csv") if (out / "occupancy.csv").exists() else None
-        print(plots.fig_occupancy(occ, fig / "occupancy.png", llc=None))
+        occs = []
+        for fname, lab in (("occupancy.csv", "NUTS, posterior ∝ exp(−n·L_n)"),
+                           ("occupancy_nll0.5.csv", "NUTS, posterior ∝ exp(−n·L_n / 2)")):
+            if (out / fname).exists():
+                occs.append((lab, pd.read_csv(out / fname)))
+        print(plots.fig_occupancy(occs, fig / "occupancy.png", llc=None))
 
     if "posterior" not in args.skip:
         pruns = [_with_llc(load_run(Path(args.post) / a)) for a in args.headline

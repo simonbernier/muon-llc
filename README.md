@@ -11,6 +11,23 @@ trajectory predictions, the estimators and their static calibration) plus the C1
 experiments as runnable configs. Everything is a `uv` project in PyTorch. Models are tiny
 (192 parameters); the cost is chains × temperatures × checkpoints × resolutions.
 
+## TMS: dynamical vs Bayesian phase transitions under Muon
+
+`src/muon_llc/tms/` reproduces Chen et al. (2023), arXiv 2310.06301 (Toy Model of Superposition,
+r = 2, c = 6) and adds AdamW, spectral GD and Muon to its figures. Results, figures and the
+Bayesian-antecedent analysis are in [`results/tms/REPORT.md`](results/tms/REPORT.md). In short:
+under every optimizer trajectories plateau on the same k-gon critical points, and none of the 925
+observed transitions lowers the loss while lowering the learning coefficient.
+
+| Path | Purpose |
+|---|---|
+| `tms/model.py`, `tms/potential.py` | model, data, exact population loss |
+| `tms/critical_points.py` | the 18 k-gon families, losses, prior constants, phase classifier, free energy |
+| `tms/train.py` | batched multi-seed training (SGD, AdamW, spectral GD, Muon) |
+| `tms/llc.py`, `tms/posterior.py` | SGLD λ̂ (batched over centres), NUTS posterior (extra `mcmc`) |
+| `tms/transitions.py`, `tms/plots.py` | plateau segmentation, transitions, figures |
+| `experiments/tms_*.py` | `tms_arms`, `tms_estimate`, `tms_critical_llc`, `tms_posterior`, `tms_bah`, `tms_figures`, `tms_smoke` |
+
 ## Quickstart
 
 ```bash

@@ -189,7 +189,7 @@ def fig_loss_vs_llc(runs: list[dict], out: Path, title=None, xlim=(-16, 12), yli
         _levels(ax, *ylim)
         ax.set_title(run["label"], fontsize=9.5, loc="left")
         ax.set_xlabel(r"estimated LLC  $\hat\lambda$")
-        cb = fig.colorbar(sc, ax=ax, orientation="horizontal", pad=0.14, fraction=0.04, aspect=40)
+        cb = fig.colorbar(sc, ax=ax, orientation="horizontal", pad=0.2, fraction=0.04, aspect=40)
         cb.set_label("epoch", fontsize=7)
         cb.ax.tick_params(labelsize=6)
         ax = axes[1, a]
@@ -252,11 +252,15 @@ PHASE_COLORS = {"4": "#eda100", "4+": "#e87ba4", "5": "#1baf7a", "5+": "#2a78d6"
                 "other": "#898781"}
 
 
-def fig_occupancy(occ, out: Path, llc: dict | None = None, title=None):
-    """Fig. 2: posterior share of each phase against n. Left: free-energy formula. Right: NUTS."""
+def fig_occupancy(occs: list[tuple[str, object]], out: Path, llc: dict | None = None, title=None):
+    """Fig. 2: posterior share of each phase against n. First panel: free-energy formula.
+    Then one panel per (label, DataFrame) of NUTS results."""
     from .critical_points import free_energy
 
-    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.2), sharey=True)
+    occs = [(lab, df) for lab, df in occs if df is not None and len(df)]
+    fig, axes = plt.subplots(1, 1 + len(occs), figsize=(4.6 * (1 + len(occs)) + 0.6, 4.3), sharey=True,
+                             squeeze=False)
+    axes = axes[0]
     ns = np.arange(100, 1201)
     names = ["4", "4+", "5", "5+", "6"]
     F = np.stack([free_energy(nm, ns, llc=llc) for nm in names])
@@ -267,21 +271,24 @@ def fig_occupancy(occ, out: Path, llc: dict | None = None, title=None):
         k = int(np.argmax(p))
         axes[0].annotate(nm, (ns[k], p[k]), xytext=(0, 4), textcoords="offset points", fontsize=8,
                          color=INK2, ha="center")
-    axes[0].set_title("Free-energy formula", fontsize=9.5, loc="left")
+    axes[0].set_title("Free-energy formula  n L + λ log n + c", fontsize=9.5, loc="left", pad=14)
     axes[0].set_xlabel("sample size n")
     axes[0].set_ylabel("share of posterior")
-    if occ is not None and len(occ):
+    for ax, (lab, occ) in zip(axes[1:], occs):
         g = occ.groupby("n")
         for nm in names + ["other"]:
             m, se = g[nm].mean(), g[nm].sem().fillna(0)
-            axes[1].errorbar(m.index, m.values, yerr=se.values, color=PHASE_COLORS[nm], lw=1.6, marker="o",
-                             ms=4, capsize=2, label=nm)
-        axes[1].legend(ncol=6, fontsize=7.5, loc="upper center", bbox_to_anchor=(0.5, 1.0))
-        axes[1].set_title(f"NUTS posterior samples ({int(g.size().median())} datasets per n, mean ± s.e.)",
-                          fontsize=9.5, loc="left", pad=14)
-    axes[1].set_xlabel("sample size n")
+            ax.errorbar(m.index, m.values, yerr=se.values, color=PHASE_COLORS[nm], lw=1.6, marker="o",
+                        ms=4, capsize=2, label=nm)
+        ax.legend(ncol=6, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, 1.0), columnspacing=0.8,
+                  handlelength=1.2)
+        ax.set_title(f"{lab}\n({int(g.size().median())} datasets per n, mean ± s.e.)", fontsize=9, loc="left",
+                     pad=14)
+        ax.set_xlabel("sample size n")
+        ax.set_xlim(60, 1240)
+        ax.set_ylim(-0.03, 1.12)
     fig.suptitle(title or "Bayesian phase transition 5 → 6 (optimizer-independent)", fontsize=11, x=0.02, ha="left")
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=150)
