@@ -68,7 +68,7 @@ def ns_scalar_map(sigma: torch.Tensor, steps: int, coeffs: Sequence[float] = KJ_
 
 
 class SpectralOptimizer(torch.optim.Optimizer):
-    """Muon family for 2-D parameters. See module docstring."""
+    """Muon family for matrix parameters (leading batch dims = independent matrices)."""
 
     def __init__(
         self,
@@ -113,8 +113,8 @@ class SpectralOptimizer(torch.optim.Optimizer):
             for p in group["params"]:
                 if p.grad is None:
                     continue
-                if p.ndim != 2:
-                    raise ValueError("SpectralOptimizer expects 2-D parameters")
+                if p.ndim < 2:
+                    raise ValueError("SpectralOptimizer expects matrices (leading batch dims allowed)")
                 g = p.grad
                 if mu > 0:
                     state = self.state[p]
@@ -143,6 +143,9 @@ def build_optimizer(params: Iterable[torch.Tensor], cfg: dict) -> torch.optim.Op
         return torch.optim.SGD(params, lr=cfg["lr"], momentum=cfg.get("momentum", 0.0),
                                nesterov=cfg.get("nesterov", False),
                                weight_decay=cfg.get("weight_decay", 0.0))
+    if name == "adamw":
+        return torch.optim.AdamW(params, lr=cfg["lr"], betas=tuple(cfg.get("betas", (0.9, 0.999))),
+                                 eps=cfg.get("eps", 1e-8), weight_decay=cfg.get("weight_decay", 0.0))
     if name in ("spectral", "muon"):
         return SpectralOptimizer(params, **cfg)
     raise ValueError(f"unknown optimizer {name!r}")
