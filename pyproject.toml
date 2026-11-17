@@ -1,7 +1,7 @@
 [project]
 name = "muon-llc"
-version = "0.1.0"
-description = "LLC trajectories under Muon vs GD in deep linear networks (Phase C of the research plan)"
+version = "0.2.0"
+description = "Learning dynamics under the Muon optimizer through the lens of singular learning theory"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -19,6 +19,21 @@ dependencies = [
 wandb = ["wandb>=0.17"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 mcmc = ["numpyro>=0.15", "jax>=0.4.30"]
+# NUTS on the GPU. JAX ships CUDA builds for Linux only; on Windows and macOS this extra is the
+# same as `mcmc` and the posterior stage runs on the CPU.
+mcmc-cuda = ["numpyro>=0.15", "jax>=0.4.30", "jax[cuda13]>=0.4.30; sys_platform == 'linux'"]
+
+# PyPI ships CPU-only torch wheels for Windows, so torch comes from the PyTorch CUDA index on
+# Windows and Linux (macOS keeps the PyPI wheel). The wheels bundle the CUDA runtime, so a rented
+# Linux box only needs a recent NVIDIA driver. Change cu130 here (and cuda13 in the mcmc-cuda
+# extra) to match another CUDA runtime.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu130", marker = "sys_platform == 'win32' or sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]
