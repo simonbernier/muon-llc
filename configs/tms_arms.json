@@ -1,0 +1,21 @@
+{
+  "common": {"runs": 200, "epochs": 4500, "batch_size": 20, "n": 1000, "seed": 0, "data_seed": 1000,
+             "loss_scale": 1.0, "bias_std": 1.0, "init_length": 0.9, "init_noise": 0.01},
+  "arms": {
+    "sgd":            {"name": "gd", "lr": 0.005},
+    "adamw_lr1e-4":   {"name": "adamw", "lr": 1e-4},
+    "adamw_lr3e-4":   {"name": "adamw", "lr": 3e-4},
+    "adamw_lr1e-3":   {"name": "adamw", "lr": 1e-3},
+    "adamw_lr3e-3":   {"name": "adamw", "lr": 3e-3},
+    "adamw_lr1e-3_wd": {"name": "adamw", "lr": 1e-3, "weight_decay": 0.01},
+    "spectral_lr1e-4": {"name": "spectral", "lr": 1e-4, "orth": "exact", "bias": {"name": "gd", "lr": 0.005}},
+    "spectral_lr3e-4": {"name": "spectral", "lr": 3e-4, "orth": "exact", "bias": {"name": "gd", "lr": 0.005}},
+    "spectral_lr1e-3": {"name": "spectral", "lr": 1e-3, "orth": "exact", "bias": {"name": "gd", "lr": 0.005}},
+    "spectral_lr3e-3": {"name": "spectral", "lr": 3e-3, "orth": "exact", "bias": {"name": "gd", "lr": 0.005}},
+    "muon_lr1e-4": {"name": "muon", "lr": 1e-4, "orth": "ns", "ns_steps": 5, "momentum": 0.95, "nesterov": true, "bias": {"name": "gd", "lr": 0.005}},
+    "muon_lr3e-4": {"name": "muon", "lr": 3e-4, "orth": "ns", "ns_steps": 5, "momentum": 0.95, "nesterov": true, "bias": {"name": "gd", "lr": 0.005}},
+    "muon_lr1e-3": {"name": "muon", "lr": 1e-3, "orth": "ns", "ns_steps": 5, "momentum": 0.95, "nesterov": true, "bias": {"name": "gd", "lr": 0.005}},
+    "muon_lr3e-3": {"name": "muon", "lr": 3e-3, "orth": "ns", "ns_steps": 5, "momentum": 0.95, "nesterov": true, "bias": {"name": "gd", "lr": 0.005}},
+    "muon_lr1e-3_adambias": {"name": "muon", "lr": 1e-3, "orth": "ns", "ns_steps": 5, "momentum": 0.95, "nesterov": true, "bias": {"name": "adamw", "lr": 1e-3}}
+  }
+}

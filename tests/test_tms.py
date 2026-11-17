@@ -121,3 +121,18 @@ def test_sgld_llc_regular_point_and_batching():
     r = sgld_llc(p, np.stack([six, six]), eps=1e-3, gamma=1.0, n_steps=400, n_burnin=100, n_chains=8, seed=0)
     assert r.llc.shape == (2,)
     assert 6.5 < r.llc.mean() < 10.5  # theory 8.5
+
+
+def test_per_run_datasets_match_single_dataset_runs():
+    from muon_llc.tms.llc import sgld_llc
+    from muon_llc.tms.train import train_batched
+
+    multi = make_problem(100, seed=7, n_datasets=3)
+    th = init_kgon(3, seed=1)
+    cfg = dict(name="gd", lr=0.005)
+    full = train_batched(multi, th, cfg, epochs=2, ckpt_every=1, seed=0)
+    single = make_problem(100, seed=8)  # dataset of run 1
+    assert torch.equal(single.feat, multi.feat[1])
+    assert torch.allclose(multi.loss(th)[1], single.loss(th[1]))
+    r = sgld_llc(multi, full.thetas[-1], n_steps=20, n_chains=2, data_index=np.arange(3), seed=0)
+    assert np.allclose(r.loss0[1], float(single.loss(torch.tensor(full.thetas[-1, 1]))))

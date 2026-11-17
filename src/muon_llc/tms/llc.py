@@ -45,20 +45,31 @@ class LLCResult:
 def sgld_llc(problem: TMSProblem, centres, eps: float = 1e-3, gamma: float = 1.0,
              n_steps: int = 500, n_burnin: int = 0, n_chains: int = 1, nbeta: float | None = None,
              batch_size: int | None = None, seed: int = 0, chunk: int = 2048,
-             below_tol: float = 0.0) -> LLCResult:
+             below_tol: float = 0.0, data_index=None) -> LLCResult:
+    """centres (B, D). With per-run datasets, `data_index` (B,) says which dataset each centre uses."""
     centres = torch.as_tensor(np.asarray(centres), dtype=problem.dtype).reshape(-1, problem.dim)
     n, r, c = problem.n, problem.r, problem.c
     nb = float(n / np.log(n)) if nbeta is None else float(nbeta)
     g = torch.Generator().manual_seed(int(seed))
     out_llc, out_fb, out_l0 = [], [], []
 
-    def full_loss(theta):
-        W, b = split(theta, r, c)
-        return tms_loss(W, b, problem.feat, problem.mu)
+    if problem.per_run and data_index is None:
+        raise ValueError("per-run datasets need data_index")
+    data_index = None if data_index is None else torch.as_tensor(np.asarray(data_index), dtype=torch.long)
 
     for start in range(0, centres.shape[0], chunk):
         w0 = centres[start:start + chunk].unsqueeze(1)  # (B, 1, D)
         B = w0.shape[0]
+        if problem.per_run:
+            di = data_index[start:start + chunk]
+            feat, mu = problem.feat[di].unsqueeze(1), problem.mu[di].unsqueeze(1)  # (B, 1, n)
+        else:
+            feat, mu = problem.feat, problem.mu
+
+        def full_loss(theta, feat=feat, mu=mu):
+            W, b = split(theta, r, c)
+            return tms_loss(W, b, feat, mu)
+
         with torch.no_grad():
             L0 = full_loss(w0)  # (B, 1)
         theta = w0.repeat(1, n_chains, 1)
@@ -68,18 +79,16 @@ def sgld_llc(problem: TMSProblem, centres, eps: float = 1e-3, gamma: float = 1.0
             theta.requires_grad_(True)
             W, b = split(theta, r, c)
             if batch_size is None:
-                loss = tms_loss(W, b, problem.feat, problem.mu)
+                loss = tms_loss(W, b, feat, mu)
             else:
                 idx = torch.randint(0, n, (batch_size,), generator=g)
-                loss = tms_loss(W, b, problem.feat[idx], problem.mu[idx])
+                loss = tms_loss(W, b, feat[..., idx], mu[..., idx])
             (grad,) = torch.autograd.grad(loss.sum(), theta)
             with torch.no_grad():
                 theta = theta - 0.5 * eps * (nb * grad + gamma * (theta - w0)) \
                     + eps**0.5 * torch.randn(theta.shape, generator=g, dtype=problem.dtype)
                 if t >= n_burnin:
-                    Lt = full_loss(theta) if batch_size is not None else None
-                    if Lt is None:  # reuse next step's forward pass cost: evaluate explicitly
-                        Lt = full_loss(theta)
+                    Lt = full_loss(theta)
                     acc += Lt
                     below += (Lt < L0 - below_tol).to(problem.dtype)
         T = n_steps - n_burnin

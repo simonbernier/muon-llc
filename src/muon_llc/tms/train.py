@@ -56,8 +56,12 @@ def train_batched(problem: TMSProblem, theta0: torch.Tensor, opt_cfg: dict, epoc
     prev = join(W, b).detach().clone()
     for ep in range(1, epochs + 1):
         perm = torch.argsort(torch.rand(R, n, generator=g), dim=1)[:, : spe * batch_size]
-        feat_ep = problem.feat[perm].view(R, spe, batch_size)
-        mu_ep = problem.mu[perm].view(R, spe, batch_size)
+        if problem.per_run:
+            feat_ep = torch.gather(problem.feat, 1, perm).view(R, spe, batch_size)
+            mu_ep = torch.gather(problem.mu, 1, perm).view(R, spe, batch_size)
+        else:
+            feat_ep = problem.feat[perm].view(R, spe, batch_size)
+            mu_ep = problem.mu[perm].view(R, spe, batch_size)
         for s in range(spe):
             for o in opts:
                 o.zero_grad(set_to_none=True)

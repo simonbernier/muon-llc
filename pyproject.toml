@@ -18,6 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 wandb = ["wandb>=0.17"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
+mcmc = ["numpyro>=0.15", "jax>=0.4.30"]
 
 [build-system]
 requires = ["hatchling"]

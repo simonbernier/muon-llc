@@ -44,7 +44,10 @@ def tms_loss(W: Tensor, b: Tensor, feat: Tensor, mu: Tensor) -> Tensor:
     if feat.dim() == 1:
         rows = G[..., feat, :]  # (..., n, c)
     else:
-        rows = torch.gather(G, -2, feat.unsqueeze(-1).expand(*feat.shape, c))
+        lead = torch.broadcast_shapes(G.shape[:-2], feat.shape[:-1])
+        feat = feat.expand(*lead, feat.shape[-1])
+        mu = mu.expand(*lead, mu.shape[-1])
+        rows = torch.gather(G.expand(*lead, c, c), -2, feat.unsqueeze(-1).expand(*feat.shape, c))
     out = torch.relu(mu.unsqueeze(-1) * rows + b.unsqueeze(-2))
     target = torch.nn.functional.one_hot(feat, c).to(out.dtype) * mu.unsqueeze(-1)
     return ((target - out) ** 2).sum(-1).mean(-1)
@@ -52,15 +55,26 @@ def tms_loss(W: Tensor, b: Tensor, feat: Tensor, mu: Tensor) -> Tensor:
 
 @dataclass
 class TMSProblem:
-    feat: Tensor  # (n,)
-    mu: Tensor  # (n,)
+    feat: Tensor  # (n,) one dataset, or (R, n) one dataset per run
+    mu: Tensor  # same shape
     r: int = 2
     c: int = 6
     loss_scale: float = 1.0
 
     @property
     def n(self) -> int:
-        return int(self.feat.shape[0])
+        return int(self.feat.shape[-1])
+
+    @property
+    def per_run(self) -> bool:
+        return self.feat.dim() == 2
+
+    def select(self, index) -> "TMSProblem":
+        """Datasets of the given runs (index: (B,) long); identity for a shared dataset."""
+        if not self.per_run:
+            return self
+        index = torch.as_tensor(index, dtype=torch.long)
+        return TMSProblem(self.feat[index], self.mu[index], self.r, self.c, self.loss_scale)
 
     @property
     def dim(self) -> int:
@@ -75,7 +89,7 @@ class TMSProblem:
         return self.mu.dtype
 
     def loss_wb(self, W: Tensor, b: Tensor, idx: Tensor | None = None) -> Tensor:
-        feat, mu = (self.feat, self.mu) if idx is None else (self.feat[idx], self.mu[idx])
+        feat, mu = (self.feat, self.mu) if idx is None else (self.feat[..., idx], self.mu[..., idx])
         return self.loss_scale * tms_loss(W, b, feat, mu)
 
     def loss(self, theta: Tensor, idx: Tensor | None = None) -> Tensor:
@@ -93,10 +107,13 @@ class TMSProblem:
 
 
 def make_problem(n: int, c: int = 6, r: int = 2, seed: int = 0, loss_scale: float = 1.0,
-                 dtype=torch.float64) -> TMSProblem:
-    g = torch.Generator().manual_seed(int(seed))
-    feat, mu = sample_data(n, c, g, dtype)
-    return TMSProblem(feat, mu, r, c, loss_scale)
+                 dtype=torch.float64, n_datasets: int | None = None) -> TMSProblem:
+    """One dataset (seed), or `n_datasets` datasets with seeds seed, seed+1, ... (one per run)."""
+    if n_datasets is None:
+        feat, mu = sample_data(n, c, torch.Generator().manual_seed(int(seed)), dtype)
+        return TMSProblem(feat, mu, r, c, loss_scale)
+    pairs = [sample_data(n, c, torch.Generator().manual_seed(int(seed) + j), dtype) for j in range(n_datasets)]
+    return TMSProblem(torch.stack([p[0] for p in pairs]), torch.stack([p[1] for p in pairs]), r, c, loss_scale)
 
 
 def kgon_vertices(k: int, rot: float = 0.0, pad_to: int | None = None, length: float = 1.0) -> np.ndarray:

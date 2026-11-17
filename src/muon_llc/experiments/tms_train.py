@@ -38,13 +38,15 @@ def main(argv=None):
     ap.add_argument("--init-noise", type=float, default=0.01)
     ap.add_argument("--bias-std", type=float, default=1.0)
     ap.add_argument("--seed", type=int, default=0, help="init seed base and minibatch order seed")
-    ap.add_argument("--data-seed", type=int, default=0)
+    ap.add_argument("--data-seed", type=int, default=1000, help="run j uses dataset seed data_seed + j")
+    ap.add_argument("--shared-data", action="store_true", help="one dataset for all runs")
     ap.add_argument("--ckpt-every", type=int, default=10)
     ap.add_argument("--threads", type=int, default=1)
     args = ap.parse_args(argv)
     torch.set_num_threads(args.threads)
     opt = json.loads(args.opt)
-    problem = make_problem(args.n, args.c, seed=args.data_seed, loss_scale=args.loss_scale)
+    problem = make_problem(args.n, args.c, seed=args.data_seed, loss_scale=args.loss_scale,
+                           n_datasets=None if args.shared_data else args.runs)
     if args.init == "kgon":
         theta0 = init_kgon(args.runs, args.c, args.init_k, args.init_length, args.init_noise,
                            args.bias_std, args.seed)
