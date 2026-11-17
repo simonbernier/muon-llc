@@ -5,30 +5,37 @@ Toy Model of Superposition* (arXiv 2310.06301), r = 2, c = 6, extended to AdamW,
 (exact orthogonalised update, no momentum) and Muon (Newton–Schulz k = 5, Nesterov momentum 0.95 on W,
 AdamW on the bias, as Muon is used in practice).
 
+Every number below comes from the tables in this directory, regenerated in one pass by
+`scripts/run_all.py` on the unified code (69 minutes for the five TMS stages on an RTX 4070
+desktop; training and NUTS on the CPU, SGLD on the GPU). What changed against the first version
+of this report is listed at the end.
+
 ## Summary
 
 1. **The paper's results reproduce.** All 18 critical-point losses, the k-gon parameters, the prior
-   constants and the 5→6 critical sample size (601) match to the printed digits. SGD trajectories
-   plateau on the k-gon loss levels, the transitions we see are the ones in the paper's list (10),
-   and λ̂ rises at every loss drop. Table K.1 is reproduced in ordering and magnitude.
+   constants and the 5→6 critical sample size (601) match to the printed digits (`tests/test_tms.py`).
+   SGD trajectories plateau on the k-gon loss levels, every one of the 117 SGD transitions lowers
+   the loss, and Table K.1 is reproduced in ordering and magnitude.
 2. **Muon does not remove the plateau structure.** Under spectral GD and Muon, at every learning rate
    tried (1e-4 to 3e-3), trajectories sit on the same k-gon levels as under SGD; in the second half of
    training under 0.6 % of checkpoints are off a known critical point for every arm. Plateaus are
-   shorter in epochs (median 50–220 against 360 for SGD) but not shorter in distance travelled.
+   shorter in epochs (median 40–220 against 360 for SGD).
 3. **The Bayesian antecedent hypothesis is not contradicted by any optimizer.** Over 16 arms × 200
-   seeds (980 transitions, 24 distinct types) and 4 arms × 400 posterior-initialised runs (66
-   transitions), there are **0 transitions with loss down and λ down** and 0 uphill transitions.
-   22 of 24 types have ΔL < 0, Δλ > 0 beyond the standard error and a free-energy crossing; the other
-   two are within error of Δλ = 0 (one of them, 4⁺⁻→4, has Δλ = 1.9 ± 0.65 with the paper's own λ̂).
+   seeds (983 transitions, 24 distinct types) and 4 arms × 400 posterior-initialised runs (71
+   transitions, 2 further types), there are **0 transitions with loss down and λ down beyond error**
+   and 0 uphill transitions. 24 of the 26 types have ΔL < 0, Δλ > 0 beyond the standard error and a
+   free-energy crossing; the other two are within error of Δλ = 0 (one of them, 4⁺⁻→4, has
+   Δλ = 1.9 ± 0.65 with the paper's own λ̂).
 4. **Muon, spectral GD and AdamW make transitions SGD did not make here, and each one has an
-   antecedent.** Examples: 4⁻⁻→4⁻, 4⁺⁻⁻→4, 4⁺⁺⁻→5, and under spectral GD from posterior samples one
-   **5→6**, the transition the paper predicts on the Bayesian side but never saw under SGD.
+   antecedent.** 12 of the 24 types occur only under non-SGD arms, for example 4⁻⁻→4⁻, 4⁺⁻⁻→4,
+   4⁺⁺⁻⁻→4 and 4⁺⁺⁻→5. All 12 are loss-down, λ-up.
 5. **One discrepancy with the paper on the Bayesian side.** Our NUTS posterior crosses 5→6 at
    n ≈ 300–400 when the posterior is exp(−n·L_n) with L_n the paper's loss, the convention in which
    the free-energy formula gives 601. See "Fig 2" below.
 
-Against the three ways Muon could have broken the BAH, fixed before the Muon runs: (a) transitions
-with Δλ ≤ 0 — none beyond error; (b) dwelling off critical points — no; (c) no plateau structure — no.
+Against the three ways Muon could have broken the hypothesis, fixed before the Muon runs:
+(a) transitions with Δλ ≤ 0: none beyond error; (b) dwelling off critical points: no; (c) no plateau
+structure: no.
 
 ## What was run
 
@@ -37,18 +44,20 @@ with Δλ ≤ 0 — none beyond error; (b) dwelling off critical points — no; 
 | Model, data | f(x) = ReLU(WᵀWx + b), W 2×6; x = μ·e_i; n = 1000, **one dataset per seed**, batch 20, 4500 epochs |
 | Init | reference-notebook init: 4-gon of length 0.9 at a random rotation + N(0, 0.01²) on W, bias ~ N(0, 1) |
 | SGD baseline | plain SGD, lr 0.005, loss = mean ‖x − f(x)‖² (the paper's L) |
-| Arms | SGD; AdamW lr 1e-4…3e-3 (+ wd 0.01); spectral GD lr 1e-4…3e-3; Muon lr 1e-4…3e-3 (+ two SGD-bias ablations) |
+| Arms | SGD; AdamW lr 1e-4…3e-3 (+ wd 0.01); spectral GD lr 1e-4…3e-3; Muon lr 1e-4…3e-3 (+ two SGD-bias ablations). `configs/tms/arms.json` |
 | Muon and the bias | Muon only acts on W. The bias is under AdamW (lr 1e-3, β = (0.9, 0.999), no decay) at every Muon lr. Ablation: bias under plain SGD at lr 0.005. Spectral GD keeps the SGD bias, as the control that changes only the update on W |
 | Seeds | 200 per arm; same init, dataset and minibatch order across arms |
-| λ̂ on trajectories | paper settings: full-batch SGLD, ε = 0.001, γ = 1, 500 steps, every 30 epochs, first 30 seeds |
+| λ̂ on trajectories | paper settings: full-batch SGLD, ε = 0.001, γ = 1, 500 steps, 2 chains, every 30 epochs, first 30 seeds of the four headline arms (SGD, spectral 3e-4, Muon 3e-4, AdamW 3e-4) |
 | λ̂ at critical points | paper protocol (Appendix K): n = 5000, γ = 0.1, 10 000 steps, 10 chains, their step sizes, escaped chains dropped |
 | Posterior | NUTS (numpyro), prior N(0, 1) |
+| Posterior-initialised runs | 400 NUTS samples at n = 100 as initial points, 5000 epochs, the four headline arms; λ̂ every 100 epochs for all 400 runs |
 
-Two things the paper leaves open and how they were settled:
+Two choices the paper leaves open were settled in the original exploration and were **not** rerun
+in this pass; the statements are carried over as they were made then:
 
 - **Momentum / loss scale of the baseline.** Four combinations were tried (momentum 0 or 0.9; loss
-  divided by c or not). Plain SGD with the paper's loss gives transitions at epochs ~200–3800 in 13 of
-  30 seeds (paper: 7 of 30 shown) and was kept. Momentum 0.9 with loss/6 is nearly identical.
+  divided by c or not). Plain SGD with the paper's loss gave transitions at epochs ~200–3800 in 13 of
+  30 seeds (paper: 7 of 30 shown) and was kept. Momentum 0.9 with loss/6 was nearly identical.
 - **One dataset per seed is needed.** With a single shared dataset 4⁺→5 never occurred. In the
   population loss the 4⁺-gon is locally stable (gradient flow from 4⁺ + noise of std 0.03 stays put;
   the Hessian near it has no negative eigenvalue). It becomes a saddle only through the finite-sample
@@ -69,27 +78,38 @@ zero. The paper's statement that a dead vertex's length is "subject only to l² 
 | Fig D.1 | `figures/transition_graph.png` | reproduced, Muon/AdamW added |
 | Table K.1 | `table_k1.csv` | reproduced |
 | Fig 2 | `figures/occupancy.png` | transition reproduced; location differs, see below |
-| — | `figures/ensemble_loss*.png` | new: all 200 seeds per arm, and learning-rate sweeps |
+| – | `figures/ensemble_loss*.png` | new: all 200 seeds per arm, and learning-rate sweeps |
 
 ### Dynamical transitions (Fig 1 / B)
 
-`trajectory_seed002.png` is the paper's Fig 1 second half: 4⁺→5 with λ̂ going from about 4.5 to 7.
+`trajectory_seed002.png` is the paper's Fig 1 second half: 4⁺→5 with λ̂ going from about 4.5 to 6.8
+under all four optimizers.
+
 Across the 30 seeds with λ̂ estimates, every detected transition comes with a rise in on-trajectory
 λ̂: 13/13 under SGD, 15/15 under spectral GD, 9/9 under Muon, 4/4 under AdamW
-(`trajectory_llc_jumps.csv`; median rise 2.4–5.0, smallest 0.2 under AdamW and 1.4 otherwise).
+(`trajectory_llc_jumps.csv`; λ̂ before and after is the median over the plateau on each side; median
+rise 5.0, 4.3, 3.9, 2.4; smallest 0.2 under AdamW, a 5→5⁺, and 1.4 otherwise).
+
+These rises are not all the same kind of evidence. In 19 of the 41 the value before the transition
+is negative, which means the SGLD chain left the plateau for lower loss and the number is not an
+estimate of λ there. That is the case for every dead-vertex revival out of 4⁺⁻⁻ and 4⁺⁻⁻⁻ (7), for 10
+of the 14 4⁺⁻→4, and for 2 of the 5 out of 4⁺⁺⁻. The 22 transitions with a positive value before (all eleven 4⁺→5, the three
+4⁺⁺→5⁺, the three 4⁺⁺⁻→4⁺⁺, four 4⁺⁻→4 and the 5→5⁺) rise by a median of 2.8. Over all checkpoints,
+47–55 % of the trajectory estimates under SGD, spectral GD and Muon fail the paper's chain-health
+test (more than 5 % of draws below the starting loss) and 18 % are negative; under AdamW 29 % and 9 %.
 
 Per arm, 200 seeds (`arms_summary.csv`, `transitions.csv`):
 
 | arm | runs with a transition | transitions | antecedent | inconclusive | violation | types not seen under SGD | off-critical, 2nd half (%) | median plateau (epochs) | median plateau (path length) |
 |---|---|---|---|---|---|---|---|---|---|
 | SGD lr 0.005 | 108 | 117 | 69 | 48 | 0 | – | 0.42 | 360 | 7.6 |
-| spectral lr 1e-4 | 126 | 140 | 99 | 41 | 0 | 3 | 0.44 | 220 | 4.7 |
-| spectral lr 3e-4 | 127 | 132 | 89 | 43 | 0 | 4 | 0 | 80 | 2.3 |
+| spectral lr 1e-4 | 127 | 141 | 100 | 41 | 0 | 4 | 0.45 | 220 | 4.8 |
+| spectral lr 3e-4 | 128 | 134 | 91 | 43 | 0 | 6 | 0.02 | 80 | 2.3 |
 | spectral lr 1e-3 | 70 | 72 | 55 | 17 | 0 | 4 | 0.06 | 90 | 6.0 |
-| spectral lr 3e-3 | 37 | 38 | 38 | 0 | 0 | 4 | 0.10 | 140 | 28 |
-| Muon lr 1e-4 | 119 | 123 | 82 | 41 | 0 | 3 | 0.004 | 120 | 1.3 |
+| spectral lr 3e-3 | 37 | 38 | 38 | 0 | 0 | 3 | 0 | 135 | 27 |
+| Muon lr 1e-4 | 120 | 124 | 83 | 41 | 0 | 4 | 0.007 | 120 | 1.3 |
 | Muon lr 3e-4 | 67 | 70 | 49 | 21 | 0 | 4 | 0.01 | 50 | 0.89 |
-| Muon lr 1e-3 | 16 | 16 | 16 | 0 | 0 | 1 | 0.02 | 85 | 4.5 |
+| Muon lr 1e-3 | 15 | 15 | 15 | 0 | 0 | 1 | 0.02 | 80 | 4.2 |
 | Muon lr 3e-3 | 15 | 15 | 15 | 0 | 0 | 1 | 0.01 | 130 | 21 |
 | Muon lr 3e-4, SGD bias | 103 | 107 | 68 | 39 | 0 | 2 | 0 | 40 | 1.1 |
 | Muon lr 1e-3, SGD bias | 26 | 27 | 26 | 1 | 0 | 1 | 0.10 | 120 | 7.8 |
@@ -97,20 +117,24 @@ Per arm, 200 seeds (`arms_summary.csv`, `transitions.csv`):
 | AdamW lr 3e-4 | 32 | 32 | 28 | 4 | 0 | 1 | 0 | 80 | 0.86 |
 | AdamW lr 1e-3 | 18 | 18 | 17 | 1 | 0 | 1 | 0 | 50 | 1.0 |
 | AdamW lr 3e-3 | 5 | 5 | 5 | 0 | 0 | 0 | 0 | 60 | 3.1 |
-| AdamW lr 1e-3, wd 0.01 | 18 | 18 | 17 | 1 | 0 | 1 | 0 | 95 | 2.3 |
+| AdamW lr 1e-3, wd 0.01 | 18 | 18 | 17 | 1 | 0 | 1 | 0.002 | 95 | 2.3 |
 
-"Inconclusive" is almost entirely the single type 4⁺⁻→4 (see below). The fall in transition counts
-at high learning rate is partly a detection limit: a plateau must last 3 checkpoints (30 epochs), and
-fast arms pass through the early states sooner than that. End states show where they go regardless:
-AdamW ends in a 5- or 5⁺-gon in 63–84 of 200 runs, Muon in 22–64, spectral GD in 35–54, SGD in 18.
+"Inconclusive" is almost entirely the single type 4⁺⁻→4 (see below). Measured in distance travelled
+in parameter space instead of epochs, plateaus under the orthogonalised optimizers are shorter than
+SGD's at small learning rates and longer at large ones (0.9 to 27 against 7.6).
+
+The fall in transition counts at high learning rate is partly a detection limit: a plateau must last
+3 checkpoints (30 epochs), and fast arms pass through the early states sooner than that. End states
+show where they go regardless: AdamW ends in a 5- or 5⁺-gon in 63–84 of 200 runs, Muon in 22–64,
+spectral GD in 35–54, SGD in 18.
 
 **Bias rule.** Putting the bias under AdamW instead of SGD changes rates, not the picture. At lr 3e-4
 Muon makes fewer detected transitions (70 against 107). The drop is in the dead-vertex revivals
 (4⁺⁻→4: 21 against 39; 4⁺⁻⁻→4⁻: 4 against 12; 4⁺⁺⁻→4⁺: 3 against 11) while 4⁺→5 is unchanged (18), and
 the end states are nearly identical (4-gon 76 against 78, 5/5⁺-gon 30 against 26), so the revivals
 still happen but the starting plateau is too short to register. At lr 1e-3 more runs end in a 5- or
-5⁺-gon (53 against 30). The plateau levels, the kinds of transition and the
-BAH verdicts are the same under both bias rules.
+5⁺-gon (53 against 30). The plateau levels, the kinds of transition and the verdicts are the same
+under both bias rules.
 
 Transition types pooled over arms (λ from theory for 5, 5⁺, 6, otherwise our Table K.1 estimate;
 error = standard error over chains; n_cr from n·ΔL + Δλ·log n + Δc = 0):
@@ -123,35 +147,47 @@ error = standard error over chains; n_cr from n·ΔL + Δλ·log n + Δc = 0):
 | 4⁺⁺ → 5⁺ | 102 | 16 | −0.035 | 1.74 ± 0.23 | 331 | antecedent | yes |
 | 4⁺⁺⁻ → 4⁺ | 73 | 8 | −0.049 | 0.88 ± 0.66 | 92 | antecedent | yes |
 | 4⁺⁻⁻⁻ → 4⁻⁻ | 38 | 7 | −0.049 | 0.27 ± 0.21 | 29 | antecedent | yes |
+| 4⁻⁻ → 4⁻ | 26 | 10 | −0.056 | 1.82 ± 0.26 | 179 | antecedent | no |
 | 4⁺⁺⁻ → 4⁺⁺ | 24 | 12 | −0.056 | 1.61 ± 0.63 | 155 | antecedent | yes |
 | 4⁺⁻ → 4⁺ | 23 | 10 | −0.056 | 1.40 ± 0.45 | 132 | antecedent | yes |
-| 4⁻⁻ → 4⁻ | 23 | 7 | −0.056 | 1.82 ± 0.26 | 179 | antecedent | no |
 | 4⁺⁻⁻ → 4 | 19 | 6 | −0.104 | 2.71 ± 0.34 | 138 | antecedent | no |
-| 5 → 5⁺ | 15 | 3 | −0.007 | 1.5 (theory) | 1590 | antecedent | no |
+| 5 → 5⁺ | 15 | 3 | −0.007 | 1.5 (theory) | 1594 | antecedent | no |
 | 4⁺⁺⁻⁻ → 4 | 15 | 6 | −0.097 | 2.18 ± 0.42 | 117 | antecedent | no |
 | 12 rarer types | 32 | | < 0 | > 0 except one | | 11 antecedent, 1 inconclusive | |
 
 - 4⁺⁻→4 is the most common transition under every optimizer including SGD. Our estimates put the two
-  ends at 4.63 ± 0.33 and 4.73 ± 0.21; the paper's Table K.1 has 3.39 and 5.30. On-trajectory λ̂
-  rises by a median of 5.1 across it (15/15). So it is "inconclusive" from our critical-point
-  estimates and "antecedent" from the paper's; nothing points to a violation.
-- 4⁺⁻⁻⁻→4⁻⁻ and 4⁺⁻⁻⁻⁻→4⁻⁻⁻ occur at very small n_cr; the paper also calls these inconclusive.
+  ends at 4.63 ± 0.33 and 4.73 ± 0.21; the paper's Table K.1 has 3.39 and 5.30. So it is
+  "inconclusive" from our critical-point estimates and "antecedent" from the paper's; nothing points
+  to a violation. The on-trajectory estimates do not settle it, because most of the values before
+  this transition are escaped chains (see above).
+- 4⁺⁻⁻⁻→4⁻⁻ occurs at a very small n_cr (29), and the one 4⁺⁻⁻⁻⁻→4⁻⁻⁻ has Δλ = −0.04 ± 0.24; the
+  paper also calls these inconclusive.
 - The verdict of a transition type is a property of the loss landscape, not of the optimizer. What
-  the optimizer changes is which types occur. The 12 types that only non-SGD arms produced are all
-  loss-down, λ-up.
+  the optimizer changes is which types occur.
 
 ### Posterior-initialised runs (Fig 3)
 
-400 NUTS samples at n = 100 as initial points, 5000 epochs, four arms. All arms end on the same
-levels (≈ 200 at the 5-gon, 117–118 at the 4-gon, 28–29 at the 6-gon), and lower-loss plateaus have
-higher on-trajectory λ̂ under every optimizer. Transitions: 5→5⁺ (9–10 per arm), 4⁺→5 (3–5), and under
-spectral GD one 5→6 and one 4→5 (`posterior_init_transitions.csv`). The 6-gon end states are runs
-that started in the 6-gon basin, not transitions.
+All four arms end on the same levels: 159–165 runs at the 5-gon, 147–149 at the 4-gon, 38–40 at
+the 6-gon, 20–24 at the 5⁺-gon, 19–21 at 4⁻. Lower-loss end states have higher on-trajectory λ̂
+under every optimizer: 4.6 at the 4-gon, 6.8–6.9 at the 5-gon, 7.6–7.7 at the 5⁺-gon and 8.1–8.2 at
+the 6-gon, the same to 0.1 across the four arms.
+
+Transitions (`posterior_init_transitions.csv`): 5→5⁺ (6–10 per arm) and 4⁺→5 (4–10 per arm) make
+up 61 of the 71; the rest are 4⁺⁻→4 (one per arm), 4→4⁺ (SGD, spectral GD), 4⁺⁻→4⁺ (Muon, spectral
+GD), 4⁻→4 (Muon) and one 4→5 under spectral GD. No transition into the 6-gon was detected: every
+run that ends in the 6-gon has it as its first plateau.
+
+The mix of end states depends on the initial points, and those are one NUTS run. A second NUTS run
+with the same settings gives a different mix (see "Changes" below), so the end-state counts say
+that the four optimizers agree with each other on a given set of initial points, not what the
+posterior shares at n = 100 are.
 
 ### Table K.1
 
-Same ordering as the paper. For 5, 5⁺, 6: 7.9, 10.5, 9.8 here; 7.7, 9.9, 9.0 in the paper; 7, 8.5, 8.5
-in theory. Chains kept: 10 of 10 except 4⁺⁻⁻⁻⁻ (6), 4⁺⁺⁻⁻⁻⁻ (8), 4⁺⁺⁻ (7), 4⁺⁺ (8).
+Same ordering as the paper (rank correlation 0.99 over the 18 points). For 5, 5⁺, 6: 7.9, 10.5, 9.8
+here; 7.7, 9.9, 9.0 in the paper; 7, 8.5, 8.5 in theory, so both sets of estimates sit above theory
+for the three points where theory is known. Chains kept: 10 of 10 except 4⁺⁻⁻⁻⁻ (6), 4⁺⁺⁻⁻⁻⁻ (8),
+4⁺⁺⁻ (7), 4⁺⁺ (8).
 
 ### Fig 2 (Bayesian 5→6 transition)
 
@@ -159,46 +195,89 @@ The transition exists and goes the right way: the 5-gon dominates at small n, th
 (`figures/occupancy.png`, `occupancy.csv`, `occupancy_nll0.5.csv`; 3 datasets per n, 4 chains).
 Where it happens depends on a factor of 2 in the likelihood:
 
-| Posterior | 6-gon share passes the 5-gon share at | Free-energy formula with that convention |
-|---|---|---|
-| exp(−n·L_n), L_n = mean ‖x − f‖² (the convention of the formula n·L + λ·log n) | n ≈ 300–400 | 601 |
-| exp(−n·L_n/2), i.e. p(x\|w) ∝ exp(−½‖x − f‖²) as written in the paper's eq. (3) | n ≈ 700–800 | 1316 |
+| Posterior | 6-gon share passes the 5-gon share | Shares either side (5-gon / 6-gon) | Free-energy formula with that convention |
+|---|---|---|---|
+| exp(−n·L_n), L_n = mean ‖x − f‖² (the convention of the formula n·L + λ·log n) | between n = 300 and 400 | 0.64 / 0.31, then 0.21 / 0.76 | 601 |
+| exp(−n·L_n/2), i.e. p(x\|w) ∝ exp(−½‖x − f‖²) as written in the paper's eq. (3) | between n = 700 and 800 | 0.53 / 0.42, then 0.20 / 0.77 | 1316 |
 
 The paper reports 600–700 from MCMC and 601 from the formula. Our second row lands near their MCMC
 range, our first row is the convention their formula is written in. So in both conventions our
 sampled posterior switches to the 6-gon at roughly half the n the formula predicts, and the paper's
 agreement between the two would be explained if their sampler used the eq. (3) likelihood while the
 formula used L without the ½. I could not check their sampling code, so this is an inference from
-our numbers, on 3 datasets per n with some sticky chains at n ≥ 1000 (the 5-gon share at n = 1100
-comes from chains that never left their starting basin).
+our numbers, on 3 datasets per n. Chains stop mixing between basins at large n: from n = 800 on, 9
+to 12 of the 12 chains per n sit in the 6-gon for their whole length, and the remaining 5- and
+5⁺-gon share at n = 1000–1200 comes from the 1–3 chains that do not.
 
-This does not touch the BAH results above: the sign of ΔL and Δλ for each transition is unaffected,
-and only the quoted n_cr values would rescale.
+This does not touch the results on dynamical transitions: the sign of ΔL and Δλ for each transition
+is unaffected, and only the quoted n_cr values would rescale.
 
 ## Limits
 
 - λ̂ is noisy for the degenerate 4-gons (chain std 0.4–1.5). Verdicts for those rest on the sign of
   a point estimate with a standard error from 6–10 chains; systematic SGLD bias is not included.
-- Trajectory λ̂ was estimated for 30 seeds of four arms (SGD, spectral 3e-4, Muon 3e-4, AdamW 3e-4),
-  not for every arm.
+- On-trajectory λ̂ at the paper's settings is an escaped chain at roughly half of the checkpoints,
+  so "λ̂ rises at every transition" is firm for the 22 transitions with a healthy value before and a
+  statement about the chain leaving the plateau for the other 19.
+- Trajectory λ̂ was estimated for 30 seeds of the four headline arms, not for every arm.
 - One model size (r = 2, c = 6), constant learning rates, no schedule. Muon's weight decay was 0.
 - Checkpoints are every 10 epochs, so sub-30-epoch plateaus under fast arms are not counted.
 - The double-transition concavity check of Appendix C.4 was not done; runs with two transitions are
   rare (at most 14 of 200 per arm).
 - Fig 2 uses 3 datasets per n and 4 chains, against 10 and 6 in the paper; no t-SNE diagnostics.
+- Three settings of this pass were reconstructed, because the first version did not record them:
+  1500 NUTS samples per chain for Fig 2, λ̂ every 100 epochs on all 400 posterior-initialised runs,
+  and the definition of the rise in `trajectory_llc_jumps.csv` (median over each plateau). The jump
+  table covers the four headline arms.
+- Muon's Newton–Schulz runs in float32, and its trajectories differ between CPU and GPU (4e-3 in
+  the weights after 1500 steps). All training here ran on the CPU. Counts over seeds are comparable
+  across devices; individual Muon seeds are not.
+
+## Changes from the first version of this report
+
+The first version was produced on the TMS branch before the two projects were joined. The rerun
+used the same seeds and settings.
+
+- **Table K.1 is identical** to nine digits. It now goes through the sampler shared with the DLN
+  testbed, on the GPU.
+- **SGD and AdamW arms are identical** in every count. **Spectral GD and Muon arms moved by at most
+  two transitions per arm** (for example spectral lr 3e-4: 134 against 132), which changes the total
+  from 980 to 983 and some "types not seen under SGD" counts by one or two. No verdict changed.
+- **The posterior-initialised runs start from different points.** The 400 initial points are drawn
+  by NUTS, which did not reproduce the earlier draw (same seed and settings, different JAX build).
+  By shape, the new points are 116 5-gons and 105 4-gons where the old ones were 152 and 92.
+  End-state counts moved accordingly (about 160 runs at the 5-gon against about 200, 148 at the
+  4-gon against 117, 39 at the 6-gon against 29) and there are 71 transitions against 66.
+- **The single 5→6 transition under spectral GD did not recur.** The first version reported one
+  among the posterior-initialised runs and called it the transition the paper predicts but never
+  saw under SGD. No arm shows it in this run, so that sentence is withdrawn; one occurrence in 1600
+  runs that does not survive a redraw of the initial points is not a finding.
+- **New in this version:** the breakdown of on-trajectory rises into healthy and escaped chains,
+  and the share of trajectory estimates failing the chain-health test. The first version stated the
+  rises without it.
+- The first version said the SGD transitions "are the ones in the paper's list". I did not recheck
+  that against the paper in this pass, so the sentence is not repeated.
 
 ## Reproduce
 
 ```bash
 uv sync --extra dev --extra mcmc
-uv run pytest                                                    # theory checks included
-uv run python -m muon_llc.experiments.tms_smoke                  # 1-minute end-to-end check
-uv run python -m muon_llc.experiments.tms_arms --jobs 4          # 16 arms x 200 seeds -> runs/tms/arms
-uv run python -m muon_llc.experiments.tms_critical_llc           # Table K.1
-uv run python -m muon_llc.experiments.tms_estimate --run runs/tms/arms/<arm>   # trajectory lambda-hat
-uv run python -m muon_llc.experiments.tms_posterior inits --out runs/tms
-uv run python -m muon_llc.experiments.tms_arms --out runs/tms/post --init runs/tms/posterior_inits_n100.npy \
-    --only sgd spectral_lr3e-4 muon_lr3e-4 adamw_lr3e-4 --set runs=400 epochs=5000 seed=500 data_seed=5000
-uv run python -m muon_llc.experiments.tms_posterior occupancy
-uv run python -m muon_llc.experiments.tms_bah && uv run python -m muon_llc.experiments.tms_figures
 ```
+
+```bash
+uv run python scripts/run_all.py --stages tms-arms tms-llc tms-k1 tms-posterior tms-analysis
+```
+
+The stages, with the time each took here:
+
+| Stage | Module (`muon_llc.tms.experiments.`) | Device | Minutes |
+|---|---|---|---|
+| `tms-arms` | `arms` (16 arms × 200 seeds, 8 processes) | CPU | 25 |
+| `tms-llc` | `estimate` on the four headline arms | GPU | 2.4 |
+| `tms-k1` | `critical_llc` | GPU | 2.0 |
+| `tms-posterior` | `posterior inits`, `arms --init`, `estimate`, `posterior occupancy` (both likelihoods) | CPU (NUTS, training), GPU (λ̂) | 33 |
+| `tms-analysis` | `bah` (twice), `figures` | CPU | 5.9 |
+
+The exact command of every step is in `runs/logs/<stage>.log` after a run, and
+`uv run python scripts/run_all.py --dry-run` prints them without running anything.
+`uv run python -m muon_llc.tms.experiments.smoke` is a one-minute end-to-end check.
