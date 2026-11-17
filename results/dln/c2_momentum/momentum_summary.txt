@@ -1,0 +1,14 @@
+mu 0.0: residual amplitude ∝ lr^0.52 (predicted 1), R2 0.27
+mu 0.5: residual amplitude ∝ lr^1.88 (predicted 1), R2 0.93
+mu 0.9: residual amplitude ∝ lr^3.42 (predicted 1), R2 0.93
+mu 0.95: residual amplitude ∝ lr^1.11 (predicted 1), R2 0.88
+mu 0.99: residual amplitude ∝ lr^0.65 (predicted 1), R2 0.99
+
+uniformity (rows μ, cols init scale):
+model.init_scale       0.001     0.010     0.100
+optimizer.momentum                              
+0.00                0.977926  0.909476  0.486157
+0.50                0.977298  0.923523  0.486085
+0.90                0.970880  0.915935  0.468856
+0.95                0.978559  0.913473  0.478687
+0.99                0.977226  0.910280  0.439664

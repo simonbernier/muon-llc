@@ -1,0 +1,9 @@
+breakdown kappa* by NS steps (lag_ratio > 2.0; inf = no breakdown in the grid):
+ ns_steps  kappa_star  kappa_star_uniformity
+        1    2.000000               2.000000
+        2    5.684680               4.137826
+        3   23.560064               2.000000
+        5         inf               2.000000
+       10         inf               5.265977
+
+fitted d log kappa* / dk = 1.233   predicted log a = 1.237
