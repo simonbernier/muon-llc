@@ -3,7 +3,7 @@ from itertools import product
 
 import pytest
 
-from muon_llc.theory.aoyagi import (
+from muon_llc.dln.theory.aoyagi import (
     dln_learning_coefficient,
     reduced_rank_regression_aoyagi_watanabe,
     staircase,
@@ -55,7 +55,7 @@ def test_monotone_in_rank():
 
 def test_boundary_choice_of_sigma_is_continuous():
     # (1,2,1): both Sigma={0,2} (ell=1) and Sigma=all (ell=2) sit on the boundary and agree.
-    from muon_llc.theory.aoyagi import _candidate
+    from muon_llc.dln.theory.aoyagi import _candidate
 
     deltas = sorted([1, 2, 1])
     ok1, _, S1 = _candidate(deltas, 1)

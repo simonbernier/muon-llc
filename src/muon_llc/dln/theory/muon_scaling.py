@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..optim import KJ_COEFFS, ns_scalar_map
+from ...optim import KJ_COEFFS, ns_scalar_map
 
 NS_SMALL_SIGMA_GAIN = KJ_COEFFS[0]  # a = 3.4445
 

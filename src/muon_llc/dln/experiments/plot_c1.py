@@ -1,7 +1,7 @@
 """C1 figures: λ̂(t) for GD vs spectral GD with the Aoyagi staircase and A4 predictions, the
 product singular values, the β-ladder, and (if present) the resolution sweep.
 
-    uv run python -m muon_llc.experiments.plot_c1 --runs runs/c1_gd runs/c1_spectral --out runs/c1
+    uv run python -m muon_llc.dln.experiments.plot_c1 --runs runs/dln/c1_gd runs/dln/c1_spectral --out runs/dln/c1
 """
 
 from __future__ import annotations
@@ -12,8 +12,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..io import load_llc, load_run_config, load_trajectory
-from ..plotting import (
+from ...config import load_run_config
+from ..io import load_llc, load_trajectory
+from ..plots import (
     SERIES,
     label_for,
     plot_ladder,

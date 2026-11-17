@@ -1,13 +1,14 @@
 """Train a DLN from a config and save the run directory.
 
-    uv run python -m muon_llc.experiments.train --config configs/c1_gd.yaml
+    uv run python -m muon_llc.dln.experiments.train --config configs/dln/c1_gd.yaml
 """
 
 from __future__ import annotations
 
 import time
 
-from ..io import run_dir, save_config, save_train_result
+from ...config import run_dir, save_config
+from ..io import save_train_result
 from ..train import checkpoint_schedule, train
 from .common import base_parser, build_problem, dense_band, load, predicted_event_times
 

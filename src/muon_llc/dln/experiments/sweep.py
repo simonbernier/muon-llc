@@ -1,9 +1,9 @@
 """Run a grid sweep from a config's `sweep.grid` (dotted keys -> value lists).
 
-    uv run python -m muon_llc.experiments.sweep --config configs/c2_ns_steps.yaml
+    uv run python -m muon_llc.dln.experiments.sweep --config configs/dln/c2_ns_steps.yaml
 
-Each grid point trains one run (runs/<name>/<point>/), optionally estimates the LLC at a few
-checkpoints, and appends a row of singular-value observables to runs/<name>/summary.csv:
+Each grid point trains one run (runs/dln/<name>/<point>/), optionally estimates the LLC at a few
+checkpoints, and appends a row of singular-value observables to runs/dln/<name>/summary.csv:
     final s_i, predicted caps, uniformity ratio, residual amplitude, half-target times.
 """
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..io import set_dotted
+from ...config import set_dotted
 from ..theory.muon_scaling import predicted_final_singular_values
 from .common import base_parser, load, resolve_derived
 from .estimate import estimate_run

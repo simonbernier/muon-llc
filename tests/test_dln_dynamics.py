@@ -1,6 +1,6 @@
 import numpy as np
 
-from muon_llc.theory.dynamics import (
+from muon_llc.dln.theory.dynamics import (
     crossing_times,
     effective_rank,
     gd_aligned_trajectory,
@@ -9,7 +9,7 @@ from muon_llc.theory.dynamics import (
     spectral_saturation_time,
     spectral_trajectory,
 )
-from muon_llc.theory.muon_scaling import (
+from muon_llc.dln.theory.muon_scaling import (
     NS_SMALL_SIGMA_GAIN,
     fit_loglog,
     ns_flattening_threshold,

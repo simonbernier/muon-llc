@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from ..dln import DLNProblem, make_problem
-from ..io import get_device, get_dtype, load_config
+from ...config import get_device, get_dtype, load_config
+from ..model import DLNProblem, make_problem
 from ..theory.dynamics import (
     gd_aligned_trajectory,
     gd_escape_time_estimate,

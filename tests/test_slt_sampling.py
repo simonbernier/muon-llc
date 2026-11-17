@@ -3,10 +3,10 @@
 import numpy as np
 import torch
 
-from muon_llc.sampling.estimators import fit_ladder, wbic_estimate
-from muon_llc.sampling.mala import run_mala
-from muon_llc.sampling.sgld import run_sgld
-from muon_llc.theory.hessian import lambda_quad
+from muon_llc.dln.theory.hessian import lambda_quad
+from muon_llc.slt.estimators import fit_ladder, wbic_estimate
+from muon_llc.slt.mala import run_mala
+from muon_llc.slt.sgld import run_sgld
 
 
 class QuadraticProblem:
@@ -100,3 +100,27 @@ def test_mala_adaptation_targets_acceptance():
                    n_burnin=600, n_draws=500, seed=0)
     acc = rec.acceptance.mean()
     assert 0.4 < acc < 0.75, acc
+
+
+def test_sgld_batched_centres_with_per_centre_gamma_and_nbeta():
+    h = np.array([2.0, 1.0, 0.5, 0.1])
+    prob = QuadraticProblem(h)
+    nbetas, gammas = [10.0, 20.0, 40.0], [1.0, 4.0, 16.0]
+    kw = dict(eps=2e-3, n_chains=32, n_burnin=2000, n_draws=6000, batch_size=None)
+    rec = run_sgld(prob, torch.zeros(3, 4, dtype=torch.float64), nbetas, gammas, seed=0, **kw)
+    assert rec.delta_loss.shape == (3, 32, 6000) and rec.delta_loss_burnin.shape == (3, 32, 2000)
+    for i in range(3):
+        e = wbic_estimate(rec.delta_loss[i], nbetas[i], gammas[i])
+        want = lambda_quad(h, nbetas[i], gammas[i])
+        assert abs(e.lambda_hat - want) < 0.05 * want + 4 * e.err, (i, e.lambda_hat, want)
+    # at a minimum no draw can sit below the centre: the escape test passes for every chain
+    assert rec.frac_below().shape == (3, 32) and (rec.frac_below() == 0).all()
+
+
+def test_sgld_one_centre_is_the_same_chain_batched_or_not():
+    prob = QuadraticProblem(np.array([2.0, 1.0, 0.5, 0.1]))
+    kw = dict(nbeta=20.0, gamma=4.0, eps=2e-3, n_chains=4, n_burnin=10, n_draws=50, batch_size=1, seed=7)
+    a = run_sgld(prob, torch.zeros(4, dtype=torch.float64), **kw)
+    b = run_sgld(prob, torch.zeros(1, 4, dtype=torch.float64), **kw)
+    assert a.delta_loss.shape == (4, 50) and b.delta_loss.shape == (1, 4, 50)
+    assert np.array_equal(a.delta_loss, b.delta_loss[0])

@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..dln import DLNProblem
+from ..model import DLNProblem
 
 
 def hessian_eigenvalues(problem: DLNProblem, theta0: torch.Tensor) -> np.ndarray:

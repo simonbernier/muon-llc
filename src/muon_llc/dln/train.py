@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
-from .dln import DLNProblem, flatten, init_weights
-from .optim import build_optimizer
+from ..optim import build_optimizer
+from .model import DLNProblem, flatten, init_weights
 
 
 @dataclass

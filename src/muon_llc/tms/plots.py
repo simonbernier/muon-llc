@@ -1,4 +1,4 @@
-"""Figures for the TMS reproduction. Same visual system as muon_llc.plotting: light surface,
+"""Figures for the TMS reproduction. Same visual system as muon_llc.style: light surface,
 fixed colour per optimizer (SGD blue, spectral GD orange, Muon aqua, AdamW yellow), one y-axis
 per panel (loss and lambda-hat are stacked, not twinned), recessive grid."""
 
@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from scipy.spatial import ConvexHull  # noqa: E402
 
-from ..plotting import AXIS, GRID, INK, INK2, MUTED, SURFACE  # noqa: E402,F401
+from ..style import AXIS, GRID, INK, INK2, MUTED, SURFACE  # noqa: E402,F401
 from .analysis import data_losses, smooth, theory_loss  # noqa: E402
 from .critical_points import critical_points  # noqa: E402
 from .transitions import label_runs, plateaus  # noqa: E402

@@ -1,7 +1,8 @@
-# Shared defaults. Every other config `extends: base.yaml` and overrides a few keys.
+# Shared defaults for the DLN testbed. Every other config in configs/dln/ `extends: base.yaml`
+# and overrides a few keys.
 # Override anything from the CLI with --set key.sub=value (YAML-typed).
 name: base
-runs_root: runs
+runs_root: runs/dln
 device: auto          # cuda if available, else cpu
 dtype: float32
 
@@ -31,11 +32,12 @@ llc:
   nbeta_ladder: {n: 8, lo: 0.1, hi: 10.0}   # MALA rungs, multiplicative around nbeta
   gamma: 10.0              # headline localiser; resolution scale is gamma / nbeta
   gamma_sweep: [1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0]   # the resolution axis
-  estimators: [sgld, mala, surrogate]   # see muon_llc.llc for what each column means
+  estimators: [sgld, mala, surrogate]   # see muon_llc.dln.llc for what each column means
   hessian: true            # exact Hessian soft-rank baseline at each checkpoint
   checkpoints: all         # all | {max: K} | {every: k} | [steps]
   resolution_sweep_checkpoints: all    # none | all | {max: K} | [steps]
   seed: 0
+  max_centres: 256         # (checkpoint, γ) pairs per MALA call; lower it if the GPU runs out of memory
   sgld: {eps: 5.0e-4, n_chains: 16, n_burnin: 200, n_draws: 1000, batch_size: 128}
   mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 300, n_draws: 1000, target_accept: 0.574,
          fit_min_var_over_mean: 0.0, n_boot: 200}

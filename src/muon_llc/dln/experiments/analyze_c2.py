@@ -1,8 +1,8 @@
 """C2 analysis: fit the three A5 scaling laws from sweep summaries.
 
-    uv run python -m muon_llc.experiments.analyze_c2 --sweep runs/c2_ns_steps --kind ns
-    uv run python -m muon_llc.experiments.analyze_c2 --sweep runs/c2_weight_decay --kind wd
-    uv run python -m muon_llc.experiments.analyze_c2 --sweep runs/c2_momentum --kind momentum
+    uv run python -m muon_llc.dln.experiments.analyze_c2 --sweep runs/dln/c2_ns_steps --kind ns
+    uv run python -m muon_llc.dln.experiments.analyze_c2 --sweep runs/dln/c2_weight_decay --kind wd
+    uv run python -m muon_llc.dln.experiments.analyze_c2 --sweep runs/dln/c2_momentum --kind momentum
 
 ns:       breakdown κ*(k) where the lag ratio [t½(s_r)/t½(s_1)] / (s_r/s_1)^{1/L} exceeds 2
           (≈1 under uniform growth, ≫1 under saddle-to-saddle); fit log κ* = slope·k + c;
@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..plotting import plot_loglog_fit, plot_semilog_lines
+from ..plots import plot_loglog_fit, plot_semilog_lines
 from ..theory.muon_scaling import NS_SMALL_SIGMA_GAIN, fit_loglog, wd_product_cap
 
 
@@ -57,7 +57,7 @@ def analyze_ns(df: pd.DataFrame, out: Path, threshold: float = 2.0):
            f"{res.to_string(index=False)}\n\n"
            f"fitted d log kappa* / dk = {slope:.3f}   predicted log a = {np.log(NS_SMALL_SIGMA_GAIN):.3f}\n")
     print(txt)
-    (out / "ns_summary.txt").write_text(txt)
+    (out / "ns_summary.txt").write_text(txt, encoding="utf-8")
     # lag-ratio and uniformity curves vs kappa, one line per k
     series = {f"k = {int(k)}": (sub.sort_values("data.kappa")["data.kappa"].values,
                                np.minimum(sub.sort_values("data.kappa")["lag_ratio"].fillna(np.inf).values, 1e3))
@@ -95,7 +95,7 @@ def analyze_wd(df: pd.DataFrame, out: Path):
     txt.append("\nfinal s_1 across lr (mean, std) by depth and wd:\n" + spread.to_string())
     text = "\n".join(txt)
     print(text)
-    (out / "wd_summary.txt").write_text(text)
+    (out / "wd_summary.txt").write_text(text, encoding="utf-8")
     plot_semilog_lines(series, out / "wd_cap.png", "weight decay λ_wd", "final s_1", logy=True,
                        title="Weight decay cap: final s_1 vs λ_wd (prediction: min(s_1, λ_wd^-L))")
     # prediction overlay figure per depth
@@ -120,7 +120,7 @@ def analyze_momentum(df: pd.DataFrame, out: Path):
     txt.append("\nuniformity (rows μ, cols init scale):\n" + uni.to_string())
     text = "\n".join(txt)
     print(text)
-    (out / "momentum_summary.txt").write_text(text)
+    (out / "momentum_summary.txt").write_text(text, encoding="utf-8")
     plot_semilog_lines(series, out / "momentum_residual.png", "learning rate η", "residual amplitude at saturation",
                        logy=True, title="Momentum: overshoot amplitude vs η (prediction ∝ η)")
     series2 = {f"init {a}": (sub.sort_values("optimizer.momentum")["optimizer.momentum"].values + 1e-3,

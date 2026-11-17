@@ -12,7 +12,7 @@ around -1500 = nβ · (loss drop)). That is why B2 uses the truncated target rat
 full one; the trajectory experiments (C1) face the same issue and report λ̂ along the
 resolution axis γ/nβ instead of a single number.
 
-    uv run python -m muon_llc.experiments.static_dln --config configs/b2_static.yaml
+    uv run python -m muon_llc.dln.experiments.static_dln --config configs/dln/b2_static.yaml
 """
 
 from __future__ import annotations
@@ -22,10 +22,10 @@ import time
 import pandas as pd
 import torch
 
-from ..dln import DLNProblem, balanced_weights, flatten
-from ..io import run_dir, save_config
+from ...config import run_dir, save_config
 from ..llc import estimate_checkpoint, resolve_nbeta
-from ..plotting import plot_resolution
+from ..model import DLNProblem, balanced_weights, flatten
+from ..plots import plot_resolution
 from ..theory.aoyagi import dln_learning_coefficient
 from .common import base_parser, build_problem, load
 
@@ -80,7 +80,7 @@ def run_static(cfg: dict, verbose: bool = True):
     m = df[(df["estimator"] == "mala") & (df["nbeta_mult"] == 1.0)]
     score = m.assign(dev=(m["lambda_hat"] - m["lambda_true"]).abs()).groupby("gamma")["dev"].mean()
     best_gamma = float(score.idxmin()) if len(score) else float("nan")
-    with open(d / "b2_summary.txt", "w") as f:
+    with open(d / "b2_summary.txt", "w", encoding="utf-8") as f:
         f.write("mean |lambda_hat - lambda_Aoyagi| over ranks, by gamma (MALA, nbeta = n/log n)\n")
         f.write(score.to_string() + f"\n\nrecommended gamma: {best_gamma}\n")
     if verbose:

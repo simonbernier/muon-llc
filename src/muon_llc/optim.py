@@ -51,8 +51,18 @@ def newton_schulz(
     return X.to(G.dtype)
 
 
+SVD_ON_CPU_MAX_DIM = 64  # CUDA matrices up to this size are decomposed on the CPU (see polar_exact)
+
+
 def polar_exact(G: torch.Tensor, rtol: float = 1e-12) -> torch.Tensor:
-    """Exact orthogonalisation U V^T restricted to the numerically nonzero singular values."""
+    """Exact orthogonalisation U V^T restricted to the numerically nonzero singular values.
+
+    For small matrices on a GPU the SVD itself runs on the CPU and the factor is moved back:
+    cuSOLVER's batched SVD of tiny matrices is 3-4x slower than LAPACK plus the two copies
+    (measured for 200 x (2, 6) and for (8, 8) .. (64, 64)), and this makes the result the same as
+    a CPU run's for the same input. On the CPU nothing changes."""
+    if G.device.type != "cpu" and max(G.shape[-2:]) <= SVD_ON_CPU_MAX_DIM:
+        return polar_exact(G.cpu(), rtol).to(G.device)
     U, S, Vh = torch.linalg.svd(G, full_matrices=False)
     keep = (S > rtol * S.amax(dim=-1, keepdim=True)).to(G.dtype)
     return (U * keep.unsqueeze(-2)) @ Vh

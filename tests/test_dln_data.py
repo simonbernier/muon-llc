@@ -1,6 +1,6 @@
 import torch
 
-from muon_llc.dln import (
+from muon_llc.dln.model import (
     balanced_weights,
     flatten,
     init_weights,

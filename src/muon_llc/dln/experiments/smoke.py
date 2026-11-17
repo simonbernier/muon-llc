@@ -1,6 +1,6 @@
 """Reduced end-to-end run on CPU: B2 static check, C1 GD + spectral GD, both estimators, figures.
 
-    uv run python -m muon_llc.experiments.smoke [--config configs/smoke.yaml] [--set ...]
+    uv run python -m muon_llc.dln.experiments.smoke [--config configs/dln/smoke.yaml] [--set ...]
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ def main():
     import argparse
 
     p = argparse.ArgumentParser(description="Smoke test: B2 + C1 at reduced size")
-    p.add_argument("--config", default="configs/smoke.yaml")
+    p.add_argument("--config", default="configs/dln/smoke.yaml")
     p.add_argument("--set", nargs="*", default=[])
     p.add_argument("--runs-root", default=None)
     args = p.parse_args()

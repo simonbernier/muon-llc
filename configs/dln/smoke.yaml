@@ -1,7 +1,7 @@
 # Reduced end-to-end run on CPU (minutes): B2 at three ranks, C1 GD + spectral, both estimators.
 extends: base.yaml
 name: smoke
-runs_root: runs/smoke
+runs_root: runs/dln/smoke
 train:
   steps: 8000
   n_checkpoints: 12
