@@ -22,7 +22,7 @@ estimate can be checked against theory before it is trusted.
 |---|---|---|
 | Model | `W = W_3 W_2 W_1`, widths (8, 8, 8, 8), 192 parameters | `f(x) = ReLU(WᵀWx + b)`, W 2×6, 18 parameters |
 | Why | GD dynamics are closed-form (one singular value at a time); λ is known for every rank (Aoyagi 2024) | critical points are known k-gons; reproduces Chen et al. 2023 on dynamical vs Bayesian transitions |
-| Optimizers | GD, spectral GD (idealised Muon), Muon, and one-ingredient-at-a-time ablations | SGD, AdamW, spectral GD, Muon (Muon on W, AdamW on b) |
+| Optimizers | GD, AdamW, spectral GD (idealised Muon), Muon, and one-ingredient-at-a-time ablations | SGD, AdamW, spectral GD, Muon (Muon on W, AdamW on b) |
 | SLT observables | λ̂(t) by SGLD, MALA β-ladder (λ and multiplicity), Hessian soft-rank, surrogate-target λ̂ | λ̂ on trajectories and at critical points (SGLD), NUTS posterior occupancy, free-energy crossings |
 | Report | [`results/dln/REPORT.md`](results/dln/REPORT.md) | [`results/tms/REPORT.md`](results/tms/REPORT.md) |
 
@@ -36,15 +36,18 @@ Short version; the two reports have the tables, the figures and the limits.
   Spectral GD and full Muon grow them together and have all four within a factor two of each
   other in time (steps 133 to 252, and 160 to 300).
 - λ̂ of the function the network computes rises in four separate steps under GD and in a single
-  rise under spectral GD and Muon. All three end at the same value.
+  rise under spectral GD and Muon. All optimizers end at the same value.
+- AdamW is on GD's side: it learns the singular values one at a time at every learning rate
+  tried, and λ̂ rests on the same four intermediate levels as under GD. Normalising each
+  coordinate of the gradient does not remove the plateaus; orthogonalising it does.
 - Of Muon's ingredients, the number of Newton–Schulz steps decides whether growth stays uniform:
   with k = 2 the staircase returns above a condition number of about 6, with k = 3 above 24, and
   with Muon's k = 5 not at all up to 128. Weight decay caps the singular values of the product at
   λ_wd^(−L) to four digits. Momentum does not change uniformity.
 - Not established: the learning coefficient of the training loss on a plateau (the plateau is a
   saddle, and the sampler either leaves it or is held too tightly to see the flat directions),
-  and absolute agreement with Aoyagi's values (the estimates read 2 low at the chain lengths
-  used and 1.6 low with chains eight times longer; the spacing between ranks is right to 0.4).
+  and absolute agreement with Aoyagi's values (the estimates read 1.5 low, and 2 low with
+  chains eight times shorter; the spacing between ranks is right to 0.4).
 
 **Toy model of superposition** ([report](results/tms/REPORT.md))
 
@@ -105,7 +108,7 @@ at a time with `--stages`:
 
 | Stage | What it does | Output |
 |---|---|---|
-| `dln` | B2 static calibration, C1 GD vs spectral GD, C2 ablations, C3 full Muon | `runs/dln/`, `results/dln/` |
+| `dln` | B2 static calibration, C1 GD and AdamW vs spectral GD, C2 ablations, C3 full Muon | `runs/dln/`, `results/dln/` |
 | `tms-arms` | 16 optimizer arms × 200 seeds | `runs/tms/arms/` |
 | `tms-llc` | λ̂ along the trajectories of the four headline arms | `runs/tms/arms/*/llc.npz` |
 | `tms-k1` | λ̂ at the 18 critical points (Table K.1 of Chen et al.) | `results/tms/table_k1.csv` |
@@ -119,8 +122,8 @@ Tiny models are bound by per-operation overhead, not arithmetic, so the GPU only
 batch is large. Sampling (thousands of chains in one tensor) runs on the GPU; single-run
 training loops and NUTS (JAX has no CUDA build on native Windows) run on the CPU. The runbook
 picks the device per stage and records it with the timings in `runs/logs/timings.json`. On a
-desktop with an RTX 4070 the whole run takes 85 minutes (17 for the DLN stage, 69 for the TMS
-stages).
+desktop with an RTX 4070 the whole run takes about two hours (49 minutes for the DLN stage, 69
+for the TMS stages).
 
 ### On a rented Linux GPU
 
