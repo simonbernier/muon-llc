@@ -27,7 +27,7 @@ import numpy as np
 import torch
 
 from ..optim import build_optimizer
-from .model import TMSProblem, join, split, tms_loss
+from .model import TMSProblem, join, split
 
 MUON_BIAS_DEFAULT = {"name": "adamw", "lr": 1e-3, "weight_decay": 0.0}
 
@@ -76,7 +76,7 @@ def train_batched(problem: TMSProblem, theta0: torch.Tensor, opt_cfg: dict, epoc
         for s in range(spe):
             for o in opts:
                 o.zero_grad(set_to_none=True)
-            loss = problem.loss_scale * tms_loss(W, b, feat_ep[:, s], mu_ep[:, s])
+            loss = problem.loss_on(W, b, feat_ep[:, s], mu_ep[:, s])
             loss.sum().backward()
             for o in opts:
                 o.step()

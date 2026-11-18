@@ -69,8 +69,22 @@ Short version; the two reports have the tables, the figures and the limits.
 **Across the two.** In the linear network Muon skips the plateaus GD rests on. In the
 superposition model it visits the same plateaus as SGD. The first is what the theory predicts:
 those plateaus come from the spread of the gradient's singular values, which orthogonalisation
-removes. Why the second differs has not been tested. A candidate: W there is 2 × 6, so its
-gradient has only two singular values to equalise, and the bias is not orthogonalised at all.
+removes.
+
+What separates them is the hierarchy, not the ReLU. A family that contains both (a leaky slope
+from ReLU to linear, and importances ρʲ on the features) shows three kinds of slow structure:
+
+- A staircase made by a hierarchy of importances (ρ < 1). SGD learns one feature at a time;
+  spectral GD and Muon learn them together, at every slope. At ρ = 0.5 the last feature takes 15
+  times longer than the first under SGD and 3 times under the other two; at ρ = 1 all three are
+  alike.
+- The k-gon transitions, which happen at equal importances. Orthogonalised updates shorten the
+  plateau before them (1240 epochs under SGD, 510 under spectral GD, 95 under Muon) but keep it.
+- Features that start dead behind a ReLU. No optimizer revives them.
+
+The deep linear network is the first kind alone; the superposition model as published is the
+second and third. λ̂ climbs the staircase under SGD, rises once under the orthogonalised
+optimizers, and agrees between optimizers on the states they share.
 
 In neither testbed did any optimizer produce a transition against the ordering singular learning
 theory expects. In both, estimating λ at a saddle is the weak point: the chain leaves, and the
@@ -201,7 +215,7 @@ src/muon_llc/
   tms/              model, potential, critical_points, train, llc, posterior, transitions,
                     analysis, plots, experiments/
 configs/dln/        one YAML per experiment, all extending base.yaml
-configs/tms/        arms.json: the optimizer arms
+configs/tms/        arms.json: the optimizer arms; family_*.yaml: scans of the family
 scripts/run_all.py  the runbook
 results/<testbed>/  REPORT.md, tables, figures (tracked)
 runs/<testbed>/     raw runs (not tracked)

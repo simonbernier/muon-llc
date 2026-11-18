@@ -1,0 +1,62 @@
+{
+ "n": 1000,
+ "batch_size": 20,
+ "seeds": 24,
+ "seed": 0,
+ "data_seed": 1000,
+ "ckpt_every": 10,
+ "init_k": 4,
+ "optimizers": {
+  "sgd": {
+   "name": "gd",
+   "lr": 0.005
+  },
+  "spectral": {
+   "name": "spectral",
+   "lr": 0.0003,
+   "orth": "exact",
+   "bias": {
+    "name": "gd",
+    "lr": 0.005
+   }
+  },
+  "muon": {
+   "name": "muon",
+   "lr": 0.0003,
+   "orth": "ns",
+   "ns_steps": 5,
+   "momentum": 0.95,
+   "nesterov": true,
+   "bias": {
+    "name": "adamw",
+    "lr": 0.001,
+    "weight_decay": 0.0
+   }
+  }
+ },
+ "name": "family_slope",
+ "r": 4,
+ "c": 8,
+ "epochs": 8000,
+ "grid": {
+  "slope": [
+   0.0,
+   0.05,
+   0.1,
+   0.25,
+   0.5,
+   0.75,
+   1.0
+  ],
+  "rho": 0.5,
+  "init_length": 0.0,
+  "init_noise": 0.02,
+  "bias_std": 0.0
+ },
+ "opt": {
+  "name": "gd",
+  "lr": 0.005
+ },
+ "device": "cpu",
+ "seconds": 1185.0143828392029
+}

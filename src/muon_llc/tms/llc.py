@@ -71,9 +71,12 @@ def sgld_llc(problem: TMSProblem, centres, eps: float = 1e-3, gamma: float = 1.0
         w0 = centres[start:start + chunk]
         if problem.per_run:  # one dataset per centre, broadcast over chains: (B, 1, n)
             di = data_index[start:start + chunk]
-            sub = TMSProblem(problem.feat[di].unsqueeze(1), problem.mu[di].unsqueeze(1), r, c, 1.0)
+            # per-run slope and importance get the same chain axis: (B, 1) and (B, 1, c)
+            per = lambda x, nd: x[di].unsqueeze(1) if isinstance(x, torch.Tensor) and x.dim() == nd else x  # noqa: E731
+            sub = TMSProblem(problem.feat[di].unsqueeze(1), problem.mu[di].unsqueeze(1), r, c, 1.0,
+                             per(problem.slope, 1), per(problem.importance, 2))
         else:
-            sub = TMSProblem(problem.feat, problem.mu, r, c, 1.0)
+            sub = TMSProblem(problem.feat, problem.mu, r, c, 1.0, problem.slope, problem.importance)
         rec = run_sgld(sub, w0, nb, gamma, eps, n_chains, n_burnin, n_steps - n_burnin, batch_size,
                        seed=g, on_diverge="nan")
         x = nb * rec.delta_loss  # (B, C, T)

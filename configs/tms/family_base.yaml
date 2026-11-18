@@ -1,0 +1,20 @@
+# Shared settings of the family scans (muon_llc.tms.family): data, seeds and the three optimizers,
+# with the settings of the headline arms of configs/tms/arms.json.
+n: 1000
+batch_size: 20
+seeds: 24
+seed: 0
+data_seed: 1000
+ckpt_every: 10
+init_k: 4
+optimizers:
+  sgd: {name: gd, lr: 0.005}
+  spectral: {name: spectral, lr: 0.0003, orth: exact, bias: {name: gd, lr: 0.005}}
+  muon:
+    name: muon
+    lr: 0.0003
+    orth: ns
+    ns_steps: 5
+    momentum: 0.95
+    nesterov: true
+    bias: {name: adamw, lr: 0.001, weight_decay: 0.0}

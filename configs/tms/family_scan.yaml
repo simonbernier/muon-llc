@@ -1,0 +1,13 @@
+# From a small unstructured initial point to the paper's (4-gon of length 0.9, bias ~ N(0, 1)),
+# with and without a hierarchy of importances, at the paper's size and slope 0.
+extends: family_base.yaml
+name: family_scan
+r: 2
+c: 6
+epochs: 4500
+grid:
+  slope: 0.0
+  rho: [1.0, 0.5]
+  init_length: [0.0, 0.1, 0.3, 0.9]
+  init_noise: 0.01
+  bias_std: [0.0, 0.1, 0.3, 1.0]

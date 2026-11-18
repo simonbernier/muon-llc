@@ -33,6 +33,14 @@ of this report is listed at the end.
    n ≈ 300–400 when the posterior is exp(−n·L_n) with L_n the paper's loss, the convention in which
    the free-energy formula gives 601. See "Fig 2" below.
 
+6. **What separates this from the deep linear network is the hierarchy, not the ReLU.** In a
+   family that contains both, a hierarchy of feature importances makes a staircase under SGD that
+   spectral GD and Muon remove at every activation slope; the k-gon transitions, which happen at
+   equal importances, are shortened (13 times under Muon) but kept; and features that start dead
+   stay dead under every optimizer. λ̂ climbs the staircase under SGD, rises once under the
+   orthogonalised optimizers, and agrees between optimizers on shared states. See "A family
+   between the TMS and a tied linear network".
+
 Against the three ways Muon could have broken the hypothesis, fixed before the Muon runs:
 (a) transitions with Δλ ≤ 0: none beyond error; (b) dwelling off critical points: no; (c) no plateau
 structure: no.
@@ -212,6 +220,183 @@ to 12 of the 12 chains per n sit in the 6-gon for their whole length, and the re
 This does not touch the results on dynamical transitions: the sign of ΔL and Δλ for each transition
 is unaffected, and only the quoted n_cr values would rescale.
 
+## A family between the TMS and a tied linear network
+
+In the deep linear networks of the other testbed the staircase of plateaus disappears under
+spectral GD and Muon ([DLN report](../dln/REPORT.md)); here the plateaus stay. This section looks
+for what separates the two, in one model with control parameters (`muon_llc.tms.family`):
+
+    f(x) = leaky_slope(WᵀWx + b),   loss = mean_n Σ_j ρʲ (x_j − f_j(x))²
+
+| parameter | paper's TMS | other end |
+|---|---|---|
+| slope of the activation for negative arguments | 0 (ReLU) | 1: a tied two-layer linear network |
+| importance decay ρ (output j weighs ρʲ) | 1 (equal importances) | < 1: a hierarchy, as the singular values of the DLN target |
+| initial point | 4-gon of length 0.9 + N(0, 0.01²) | length 0: W ~ N(0, 0.01²) or N(0, 0.02²) |
+| initial bias | N(0, 1) | 0 |
+
+Four scans, 24 seeds per grid cell, the same seeds in every cell, 1000 samples, batch 20. SGD at
+lr 0.005; spectral GD and Muon at lr 3e-4 with the bias rules of the headline arms.
+
+| scan | size | grid | epochs |
+|---|---|---|---|
+| `family_slope` | r = 4, c = 8 | slope 0, 0.05, 0.1, 0.25, 0.5, 0.75, 1; ρ = 0.5, small initial point, no bias | 8000 |
+| `family_slope_paper` | r = 2, c = 6 | the same slopes; everything else as in the paper | 4500 |
+| `family_scan` | r = 2, c = 6 | slope 0; ρ 1, 0.5 × initial length 0, 0.1, 0.3, 0.9 × bias spread 0, 0.1, 0.3, 1 | 4500 |
+| `family_rho` | r = 2, c = 6 | slope 0; ρ 1, 0.97, 0.9, 0.8, 0.65, 0.5 × initial length 0, 0.1; no bias | 4500 |
+
+Two readouts, both defined for every member of the family:
+
+- **Learning time of a feature**: the epoch from which the loss on inputs carrying that feature
+  stays below half of what it is when the model outputs zero. "Spread" is the last learning time
+  of a run divided by its first, median over seeds (`summary.csv`).
+- **State label** `<A>a<S>p`: A features represented (‖W_j‖² + b_j > 0.25, the test of the k-gon
+  classifier) and S unrepresented features with a positive bias. For the paper's model
+  k^{σ+,φ−} is (k − φ)a σp. A plateau is at least 3 checkpoints (30 epochs) with one label; a
+  transition is "late" if the new plateau starts after epoch 300 (`states.csv`).
+
+### Result: three kinds of slow structure, and the optimizers treat them differently
+
+**1. A staircase made by the hierarchy of importances. Orthogonalised updates remove it.**
+
+With ρ < 1 and a small initial point SGD learns the features one at a time, each taking about 1/ρ
+times longer than the one before. Spectral GD and Muon learn them together. This holds at every
+slope, so the ReLU plays no part in it.
+
+Median epoch at which each feature is learned, `family_slope` (r = 4, c = 8, ρ = 0.5):
+
+| optimizer, slope | f0 | f1 | f2 | f3 | f4 | f5 | f6 | f7 |
+|---|---|---|---|---|---|---|---|---|
+| SGD, 0 | 70 | 150 | 275 | 595 | 1145 | 3690 | 6555 | – |
+| SGD, 1 | 70 | 160 | 330 | 805 | – | – | – | – |
+| spectral GD, 0 | 40 | 40 | 40 | 50 | 70 | 120 | 160 | 275 |
+| spectral GD, 1 | 40 | 40 | 40 | 50 | – | – | – | – |
+| Muon, 0 | 40 | 40 | 40 | 50 | 90 | 110 | 130 | 190 |
+| Muon, 1 | 40 | 40 | 40 | 50 | – | – | – | – |
+
+| slope | spread SGD | spectral GD | Muon | runs with a late transition (of 24): SGD | spectral GD | Muon |
+|---|---|---|---|---|---|---|
+| 0 | 53.6 | 7.0 | 4.8 | 24 | 8 | 0 |
+| 0.1 | 49.7 | 4.0 | 3.2 | 24 | 13 | 2 |
+| 0.25 | 17.4 | 3.8 | 3.5 | 24 | 2 | 0 |
+| 0.5 | 20.7 | 1.8 | 2.8 | 24 | 0 | 0 |
+| 1 | 10.8 | 1.2 | 1.2 | 24 | 0 | 0 |
+
+- The first four features (as many as W has rows) arrive within one or two checkpoints of each
+  other under the orthogonalised optimizers. The features beyond the rank, which the ReLU model
+  stores in superposition at small slope, still arrive in order (70 to 275 epochs), which is
+  where the late transitions of spectral GD come from. W has r singular directions, so
+  orthogonalising its update can equalise at most r modes.
+- In the same time the orthogonalised optimizers store more: all 8 features at slope 0, against 6
+  under SGD after 8000 epochs.
+- Muon leaves 3 of 24 runs at slope 0 with a feature never learned (final loss up to 0.042, where
+  spectral GD reaches 10⁻⁸ in all 24). I have not looked at whether that is the momentum or the
+  AdamW bias.
+
+The importance decay is the control parameter. `family_rho` (r = 2, c = 6, slope 0, small initial
+point), figure `family_rho/spread_rho.png`:
+
+![spread against importance decay](family_rho/spread_rho.png)
+
+| ρ | 1 | 0.97 | 0.9 | 0.8 | 0.65 | 0.5 |
+|---|---|---|---|---|---|---|
+| spread, SGD | 2.0 | 1.9 | 2.5 | 3.0 | 6.5 | 15.2 |
+| spread, spectral GD | 2.4 | 2.2 | 2.9 | 3.1 | 2.8 | 3.3 |
+| spread, Muon | 2.8 | 2.8 | 3.0 | 2.9 | 2.9 | 3.3 |
+| runs with a late transition, SGD | 2 | 2 | 1 | 7 | 18 | 23 |
+| spectral GD | 6 | 4 | 4 | 0 | 0 | 0 |
+| Muon | 1 | 1 | 0 | 0 | 0 | 0 |
+
+At ρ = 1 the three optimizers are alike (spread 2 to 3). As ρ falls the SGD staircase opens up and
+the other two do not move. Over the whole of `family_scan` at ρ = 0.5, SGD has a late transition
+in 182 of 384 runs, spectral GD in 12 and Muon in none.
+
+**2. Rearrangements at equal importances. Orthogonalised updates shorten them but keep them.**
+
+These are the paper's transitions. From a 4-gon with zero bias (`family_scan`, ρ = 1, bias
+spread 0) the state is 4a2p, the paper's 4⁺⁺, and some runs go to 5a1p, the 5⁺-gon:
+
+| initial length 0.9 | SGD | spectral GD | Muon |
+|---|---|---|---|
+| median dwell before the transition (epochs) | 1240 | 510 | 95 |
+| runs ending in 5a1p (of 24) | 7 | 12 | 8 |
+
+The plateau is 2.4 times shorter under spectral GD and 13 times shorter under Muon, against a
+staircase that collapses to the detection floor in kind 1. Spectral GD makes the transition more
+often than SGD. Over `family_scan` at ρ = 1, SGD has a late transition in 51 of 384 runs and
+spectral GD in 53.
+
+The linear model with equal importances behaves the same way (`family_slope_paper`, slope 1): 23
+of 24 runs make late transitions under SGD and under spectral GD, 8 under Muon. So this kind of
+plateau does not need the ReLU either; it needs the absence of a hierarchy. My reading, which I
+have not tested, is that the direction of escape is set by the finite-sample imbalance of the
+dataset, a signal below the minibatch noise; normalising the update does not help when it is
+dominated by noise, and Muon's momentum averages the noise.
+
+Between slopes 0.25 and 0.75 the 4-gon start has at most one late transition in 24 runs under any
+optimizer, and every run ends in the same state (4a2p).
+
+**3. Features that start dead. No optimizer revives them.**
+
+With a small initial point, a feature whose initial bias is negative has a ReLU that never opens,
+so it gets no gradient. Any bias spread from 0.1 up leaves about half the features dead, and the
+distribution of end states is set by the initial point: at ρ = 1 and bias spread 1 it is 3, 2, 4
+and 1 live features in 7, 6, 5 and 4 runs under SGD, spectral GD and Muon alike. These are frozen
+states, not plateaus: nothing leaves them. (At bias spread 0.1 spectral GD revives a few: 13 runs
+end with 3 live features against 6 under SGD.)
+
+The paper's initial point combines kinds 2 and 3 at ρ = 1, where kind 1 does not exist. The DLN is
+kind 1 alone.
+
+### λ̂ along the trajectories
+
+Paper settings (full-batch SGLD, ε = 0.001, γ = 1, 500 steps, nβ = n / log n), 4 chains, 8 seeds
+per cell, 36 to 41 checkpoints evenly spaced in log time (`llc.csv`, `llc_by_state.csv`,
+`llc_<optimizer>.png`). "Escaped" is the paper's health test: more than 5 % of draws below the
+starting loss.
+
+Median λ̂ by number of features learned, `family_slope`:
+
+| features learned | slope 1: SGD | spectral GD | Muon | slope 0: SGD | spectral GD | Muon |
+|---|---|---|---|---|---|---|
+| 0 | 0.4 (escaped) | 0.6 (escaped) | 0.8 (escaped) | −4.1 (escaped) | −3.8 (escaped) | −3.7 (escaped) |
+| 1 | 4.7 | – | – | 0.2 (escaped) | – | – |
+| 2 | 7.2 | – | – | 2.4 (57 % escaped) | – | – |
+| 3 | 8.9 | 5.2 | 5.2 | 3.4 | −0.3 (escaped) | 0.2 (escaped) |
+| 4 | 9.9 | 9.8 | 9.9 | 4.0 | 2.9 | 3.6 |
+| 5 | | | | 4.6 | 4.4 | 4.4 |
+| 6 | | | | 4.9 | 4.8 | 4.3 |
+| 8 | | | | – | 5.3 | 5.3 |
+
+Entries with "–" have at most 2 estimates; the 3-feature entries of spectral GD and Muon have 6
+or 7.
+
+- **Under SGD λ̂ climbs a staircase with the features**, with shrinking steps (slope 1: 4.3, 2.5,
+  1.7, 1.0), as in the DLN.
+- **Under spectral GD and Muon it rises once**, to the same end value (slope 1: 10.0, 10.1, 9.9).
+- **λ̂ is a property of the state, not of the optimizer**, where the state is one the chain can
+  stay in. From the 4-gon start at ρ = 1 the three optimizers give 5.0, 5.0, 5.0 with four
+  features (4⁺⁺) and 7.3, 7.5, 7.6 with five (5⁺). Table K.1, with chains twenty times longer at
+  n = 5000, has 6.8 and 10.5 for these two states, so the trajectory settings read low and only
+  the comparison between optimizers carries weight.
+- **The states the orthogonalised optimizers pass through are not the saddles SGD rests on.** With
+  three features learned at slope 1, λ̂ is 8.9 under SGD and 5.2 under the other two: all four
+  features are partly grown there.
+- **More features is not higher λ̂.** At the end of training λ̂ falls from 10 at slope 1 (4
+  features) to about 5.3 at slope 0 (8 features).
+- **Early states cannot be estimated.** With no feature learned every chain escapes; at slope 0 so
+  do all chains with one feature and 57 % with two.
+- **Frozen dead-feature states are not states of the posterior.** At the last checkpoint of
+  `family_scan`, 55 to 75 % of the estimates are escaped chains wherever the bias spread is 0.1 or
+  more, against 0 to 3 % at bias spread 0, for every optimizer. The sampler's noise opens a ReLU
+  that gradient descent cannot.
+
+So the expectation from singular learning theory, that the trajectory moves through states of
+rising λ, is met where there are states: on the SGD staircase and across the k-gon transitions.
+Under the orthogonalised optimizers the staircase is not traversed faster, it is not visited, and
+only the end value is shared. The dead-feature states are a third case: dynamically stable and
+invisible to the posterior.
+
 ## Limits
 
 - λ̂ is noisy for the degenerate 4-gons (chain std 0.4–1.5). Verdicts for those rest on the sign of
@@ -225,6 +410,11 @@ is unaffected, and only the quoted n_cr values would rescale.
 - The double-transition concavity check of Appendix C.4 was not done; runs with two transitions are
   rare (at most 14 of 200 per arm).
 - Fig 2 uses 3 datasets per n and 4 chains, against 10 and 6 in the paper; no t-SNE diagnostics.
+- The family scans use 24 seeds, one learning rate per optimizer and a 30-epoch floor on plateau
+  length. Their λ̂ uses 500-step chains with no reference values away from the k-gons, so the
+  staircase values are relative. One Muon cell (`family_slope`, slope 0.75) has its transition
+  count inflated by a run that flickers across the label threshold. The scans are not in
+  `scripts/run_all.py`.
 - Three settings of this pass were reconstructed, because the first version did not record them:
   1500 NUTS samples per chain for Fig 2, λ̂ every 100 epochs on all 400 posterior-initialised runs,
   and the definition of the rise in `trajectory_llc_jumps.csv` (median over each plateau). The jump
@@ -277,6 +467,26 @@ The stages, with the time each took here:
 | `tms-k1` | `critical_llc` | GPU | 2.0 |
 | `tms-posterior` | `posterior inits`, `arms --init`, `estimate`, `posterior occupancy` (both likelihoods) | CPU (NUTS, training), GPU (λ̂) | 33 |
 | `tms-analysis` | `bah` (twice), `figures` | CPU | 5.9 |
+
+The family scans are run by hand, per config (`family_slope`, `family_slope_paper`, `family_scan`,
+`family_rho`) and per optimizer (`sgd`, `spectral`, `muon`):
+
+```bash
+uv run python -m muon_llc.tms.experiments.family train --config configs/tms/family_rho.yaml --opt sgd
+```
+
+```bash
+uv run python -m muon_llc.tms.experiments.family analyse --config configs/tms/family_rho.yaml
+```
+
+```bash
+uv run python -m muon_llc.tms.experiments.family llc --config configs/tms/family_slope.yaml --device cuda
+```
+
+Training took 10 to 38 minutes per optimizer on the CPU with three to nine running side by side
+(`family_scan` the longest), λ̂ under a minute per optimizer for `family_slope` on the GPU. Outputs
+go to `runs/tms/<config>/`; the tables and figures were copied from there to
+`results/tms/<config>/`.
 
 The exact command of every step is in `runs/logs/<stage>.log` after a run, and
 `uv run python scripts/run_all.py --dry-run` prints them without running anything.

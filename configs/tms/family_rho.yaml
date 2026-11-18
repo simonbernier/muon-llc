@@ -1,0 +1,13 @@
+# Importance decay from equal importances (the paper) to a strong hierarchy, at the paper's size
+# and slope 0, from a small initial point with no bias (no feature starts dead).
+extends: family_base.yaml
+name: family_rho
+r: 2
+c: 6
+epochs: 4500
+grid:
+  slope: 0.0
+  rho: [1.0, 0.97, 0.9, 0.8, 0.65, 0.5]
+  init_length: [0.0, 0.1]
+  init_noise: 0.01
+  bias_std: 0.0

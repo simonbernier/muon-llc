@@ -1,0 +1,9 @@
+# Activation slope from ReLU to linear in the paper's setting (r = 2, c = 6, 4-gon initial point,
+# bias ~ N(0, 1), equal importances).
+extends: family_base.yaml
+name: family_slope_paper
+r: 2
+c: 6
+epochs: 4500
+grid:
+  slope: [0.0, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0]
