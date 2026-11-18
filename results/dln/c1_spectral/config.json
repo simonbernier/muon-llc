@@ -56,7 +56,7 @@
     ],
     "estimators": [
       "sgld",
-      "mala",
+      "gibbs",
       "surrogate"
     ],
     "hessian": true,
@@ -79,6 +79,13 @@
       "target_accept": 0.574,
       "fit_min_var_over_mean": 0.0,
       "n_boot": 200
+    },
+    "surrogate_sampler": "gibbs",
+    "gibbs": {
+      "n_chains": 16,
+      "n_burnin": 200,
+      "n_draws": 500,
+      "max_centres": 16
     }
   },
   "wandb": {

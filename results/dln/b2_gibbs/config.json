@@ -1,0 +1,112 @@
+{
+  "name": "b2_gibbs",
+  "runs_root": "runs/dln",
+  "device": "auto",
+  "dtype": "float32",
+  "model": {
+    "widths": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "init_scale": 0.01,
+    "seed": 0
+  },
+  "data": {
+    "n": 1024,
+    "singular_values": [
+      4.0,
+      2.0,
+      1.0,
+      0.5
+    ],
+    "seed": 0
+  },
+  "train": {
+    "steps": 20000,
+    "log_every": 20,
+    "n_checkpoints": 40,
+    "extra_checkpoints": "predicted",
+    "verbose": false
+  },
+  "optimizer": {
+    "name": "gd",
+    "lr": 0.05
+  },
+  "llc": {
+    "nbeta": null,
+    "nbeta_ladder": {
+      "n": 8,
+      "lo": 0.1,
+      "hi": 10.0
+    },
+    "gamma": 10.0,
+    "gamma_sweep": [
+      1.0,
+      3.0,
+      10.0,
+      30.0,
+      100.0,
+      300.0,
+      1000.0
+    ],
+    "estimators": [
+      "gibbs"
+    ],
+    "surrogate_sampler": "gibbs",
+    "hessian": true,
+    "checkpoints": "all",
+    "resolution_sweep_checkpoints": "all",
+    "seed": 0,
+    "max_centres": 64,
+    "sgld": {
+      "eps": 0.0005,
+      "n_chains": 16,
+      "n_burnin": 200,
+      "n_draws": 1000,
+      "batch_size": 128
+    },
+    "gibbs": {
+      "n_chains": 16,
+      "n_burnin": 500,
+      "n_draws": 2000
+    },
+    "mala": {
+      "eps0": 0.001,
+      "n_chains": 16,
+      "n_burnin": 400,
+      "n_draws": 1500,
+      "target_accept": 0.574,
+      "fit_min_var_over_mean": 0.0,
+      "n_boot": 200
+    }
+  },
+  "wandb": {
+    "enabled": false,
+    "project": "muon-llc"
+  },
+  "static": {
+    "ranks": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "gammas": [
+      0.1,
+      0.3,
+      1.0,
+      3.0,
+      10.0,
+      30.0,
+      100.0
+    ],
+    "nbeta_multipliers": [
+      1.0,
+      10.0,
+      100.0
+    ]
+  }
+}
