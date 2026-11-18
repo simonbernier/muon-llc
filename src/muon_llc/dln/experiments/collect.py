@@ -9,6 +9,7 @@ it (tables, summaries, resolved configs, figures):
     results/dln/
         b2_static/         b2.csv, b2_ladder.csv, b2_summary.txt, b2_resolution.png, config.json
         b2_long/           the same with long chains
+        b2_gibbs/          the same with the Gibbs sampler
         c1_gd/             config.json, trajectory.csv, llc.csv, ladder.csv      (one per trained run:
         c1_adamw/            c1_gd, c1_adamw, c1_spectral, c3_full_muon)
         c1_spectral/
@@ -35,8 +36,8 @@ from pathlib import Path
 
 KEEP_SUFFIXES = {".csv", ".txt", ".json", ".png", ".pdf", ".svg"}
 SKIP_DIRS = {"smoke"}
-EXPECTED = ["b2_static", "b2_long", "c1_gd", "c1_adamw", "c1_spectral", "c1", "c1_adamw_lr", "c2_ns_steps",
-            "c2_weight_decay", "c2_momentum", "c3_full_muon", "c3"]
+EXPECTED = ["b2_static", "b2_long", "b2_gibbs", "b3_offset", "c1_gd", "c1_adamw", "c1_spectral", "c1",
+            "c1_adamw_lr", "c2_ns_steps", "c2_weight_decay", "c2_momentum", "c3_full_muon", "c3"]
 
 
 def collect(runs_root: Path, out: Path, skip=SKIP_DIRS, verbose: bool = True) -> dict[str, list[str]]:

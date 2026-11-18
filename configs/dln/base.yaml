@@ -29,20 +29,28 @@ optimizer:                 # see muon_llc.optim.build_optimizer
 
 llc:
   nbeta: null              # null -> n / log n
-  nbeta_ladder: {n: 8, lo: 0.1, hi: 10.0}   # MALA rungs, multiplicative around nbeta
+  nbeta_ladder: {n: 8, lo: 0.1, hi: 10.0}   # ladder rungs, multiplicative around nbeta
   gamma: 10.0              # headline localiser; resolution scale is gamma / nbeta
   gamma_sweep: [1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0]   # the resolution axis
-  estimators: [sgld, mala, surrogate]   # see muon_llc.dln.llc for what each column means
+  estimators: [sgld, gibbs, surrogate]  # see muon_llc.dln.llc for what each column means
+  surrogate_sampler: gibbs # gibbs | mala: the sampler behind the surrogate estimate
   hessian: true            # exact Hessian soft-rank baseline at each checkpoint
   checkpoints: all         # all | {max: K} | {every: k} | [steps]
   resolution_sweep_checkpoints: all    # none | all | {max: K} | [steps]
   seed: 0
-  max_centres: 64          # (checkpoint, γ) pairs per MALA call. The loss trace of a call is kept on the
+  max_centres: 64          # (checkpoint, γ) pairs per sampler call. The loss trace of a call is kept on the
                            # device (64 pairs x 8 rungs x 16 chains x 14000 steps = 0.9 GB), and the noise
                            # is drawn on the CPU, so larger calls are not faster per pair
   sgld: {eps: 5.0e-4, n_chains: 16, n_burnin: 200, n_draws: 1000, batch_size: 128}
-  # chain length: with 300 + 1000 steps the estimate fell as nβ rose and read 2.0 below Aoyagi's
-  # values; 2000 + 12000 makes it independent of nβ up to 10x (results/dln/REPORT.md, B2)
+  # Gibbs sweeps are close to independent draws (B3: 160 000 effective draws from 160 000
+  # recorded), so 200 + 500 sweeps of 16 chains give a standard error near 0.05
+  # max_centres: the batched eigendecomposition takes 1.1 GB of GPU memory per 16 pairs, and 16
+  # pairs per call is also faster per pair than 64. Four runs at 64 exhaust a 12 GB card.
+  gibbs: {n_chains: 16, n_burnin: 200, n_draws: 500, max_centres: 16}
+  # MALA is no longer run along the trajectories; these settings serve the comparisons in B2 and
+  # B3. Chain length: with 300 + 1000 steps the estimate fell as nβ rose and read 2.0 below Aoyagi's
+  # values; 2000 + 12000 makes it independent of nβ up to 10x and reads 1.5 below (REPORT.md, B2).
+  # Of that 1.5, 0.5 to 1.2 is the chain not converging and the rest is the temperature (B3).
   mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 2000, n_draws: 12000, target_accept: 0.574,
          fit_min_var_over_mean: 0.0, n_boot: 200}
 

@@ -1,0 +1,10 @@
+# B2 with the block Gibbs sampler (dln/gibbs.py) in place of MALA: the calibration of the
+# estimator the trajectories use. Exact draws, so what is left against Aoyagi's values is the
+# temperature and the localisation, not the sampler (results/dln/REPORT.md, B3).
+extends: b2_static.yaml
+name: b2_gibbs
+static:
+  nbeta_multipliers: [1.0, 10.0, 100.0]
+llc:
+  estimators: [gibbs]
+  gibbs: {n_chains: 16, n_burnin: 500, n_draws: 2000}

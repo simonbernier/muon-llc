@@ -23,7 +23,7 @@ import pandas as pd
 import torch
 
 from ...config import run_dir, save_config
-from ..llc import estimate_checkpoint, resolve_nbeta
+from ..llc import estimate_checkpoint, headline_estimator, resolve_nbeta
 from ..model import DLNProblem, balanced_weights, flatten
 from ..plots import plot_resolution
 from ..theory.aoyagi import dln_learning_coefficient
@@ -68,7 +68,7 @@ def run_static(cfg: dict, verbose: bool = True):
             rows += rr
             ladder += lr
             if verbose:
-                sub = [x for x in rr if x["estimator"] == "mala"]
+                sub = [x for x in rr if x["estimator"] == headline_estimator(y["estimator"] for y in rr)]
                 s = "  ".join(f"γ={x['gamma']:g}: {x['lambda_hat']:.2f}±{x['err']:.2f}" for x in sub)
                 print(f"rank {r}  λ_Aoyagi={truth:g}  nβ={nb0 * mult:.0f}  {s}")
     df = pd.DataFrame(rows)
@@ -77,18 +77,19 @@ def run_static(cfg: dict, verbose: bool = True):
     lad.to_csv(d / "b2_ladder.csv", index=False)
 
     # recommended gamma: minimise mean |λ̂ - λ_true| over ranks (headline MALA estimate, mult 1)
-    m = df[(df["estimator"] == "mala") & (df["nbeta_mult"] == 1.0)]
+    est = headline_estimator(df["estimator"].unique())
+    m = df[(df["estimator"] == est) & (df["nbeta_mult"] == 1.0)]
     score = m.assign(dev=(m["lambda_hat"] - m["lambda_true"]).abs()).groupby("gamma")["dev"].mean()
     best_gamma = float(score.idxmin()) if len(score) else float("nan")
     with open(d / "b2_summary.txt", "w", encoding="utf-8") as f:
-        f.write("mean |lambda_hat - lambda_Aoyagi| over ranks, by gamma (MALA, nbeta = n/log n)\n")
+        f.write(f"mean |lambda_hat - lambda_Aoyagi| over ranks, by gamma ({est}, nbeta = n/log n)\n")
         f.write(score.to_string() + f"\n\nrecommended gamma: {best_gamma}\n")
     if verbose:
         print(score.to_string())
         print(f"recommended gamma = {best_gamma:g}  ({time.time() - t0:.0f}s)")
     truth = {int(r): dln_learning_coefficient(widths, int(r)).value for r in st["ranks"]}
     plot_resolution(m, d / "b2_resolution.png", group_col="rank",
-                    group_labels={r: f"rank {r} (λ={truth[r]:g})" for r in truth}, truth=truth,
+                    group_labels={r: f"rank {r} (λ={truth[r]:g})" for r in truth}, truth=truth, estimator=est,
                     title="B2 static DLN: λ̂ vs resolution (dashed = Aoyagi, dotted = ½·soft-rank)")
     return df, lad, best_gamma
 

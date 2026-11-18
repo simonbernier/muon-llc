@@ -153,3 +153,52 @@ def fluctuation_dissipation_residual(delta_loss: np.ndarray, nbetas: np.ndarray)
     logb = np.log(np.asarray(nbetas, dtype=np.float64).reshape(-1))
     dmean = np.gradient(mean, logb) if len(logb) > 1 else np.zeros_like(mean)
     return var - (mean - dmean)
+
+
+# ----------------------------------------------------------------------------- convergence
+def window_means(delta_loss: np.ndarray, k: int) -> np.ndarray:
+    """delta_loss (C, T) -> (k,) mean over chains and over each of k consecutive time windows."""
+    x = np.asarray(delta_loss, dtype=np.float64)
+    edges = np.linspace(0, x.shape[1], k + 1).astype(int)
+    return np.array([x[:, a:b].mean() for a, b in zip(edges[:-1], edges[1:])])
+
+
+def split_rhat(delta_loss: np.ndarray) -> float:
+    """Split-R̂ of Gelman et al.: each chain is cut in two halves, and the variance between the
+    2C half-chain means is compared with the variance within them. 1 at convergence; values above
+    about 1.01 mean the chains (or the two halves of each chain) disagree."""
+    x = np.asarray(delta_loss, dtype=np.float64)
+    h = x.shape[1] // 2
+    if h < 2:
+        return float("nan")
+    y = np.concatenate([x[:, :h], x[:, h:2 * h]], axis=0)
+    W = y.var(axis=1, ddof=1).mean()
+    B = h * y.mean(axis=1).var(ddof=1)
+    if W <= 0:
+        return float("nan")
+    return float(np.sqrt(((h - 1) / h * W + B / h) / W))
+
+
+def ess(delta_loss: np.ndarray) -> float:
+    """Effective number of independent draws in (C, T) correlated draws, from the autocorrelation
+    averaged over chains and summed over lags in pairs while the pair sums stay positive (Geyer)."""
+    x = np.asarray(delta_loss, dtype=np.float64)
+    C, T = x.shape
+    if T < 4:
+        return float("nan")
+    xc = x - x.mean(axis=1, keepdims=True)
+    nfft = 1 << int(np.ceil(np.log2(2 * T)))
+    f = np.fft.rfft(xc, nfft, axis=1)
+    acov = np.fft.irfft(f * np.conj(f), nfft, axis=1)[:, :T] / T  # biased autocovariance per chain
+    W = acov[:, 0].mean() * T / (T - 1)
+    var_plus = (T - 1) / T * W + (x.mean(axis=1).var(ddof=1) if C > 1 else 0.0)
+    if var_plus <= 0:
+        return float("nan")
+    rho = 1.0 - (W - acov.mean(axis=0)) / var_plus
+    tau = 0.0
+    for t in range(0, T - 1, 2):
+        pair = rho[t] + rho[t + 1]
+        if pair < 0:
+            break
+        tau += 2.0 * pair
+    return float(C * T / max(tau - 1.0, 1e-12))

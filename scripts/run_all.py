@@ -9,7 +9,8 @@
 
 Stages (run in this order whatever the order on the command line):
 
-    dln            B2 static calibration (short and long chains); the four trained runs (C1 GD,
+    dln            B2 static calibration (short and long chains); B3, the same points sampled by
+                   long MALA chains from two kinds of start and by a Gibbs sampler; the four trained runs (C1 GD,
                    AdamW and spectral GD, C3 full Muon: train, then estimate); the three C2 sweeps
                    and their analyses, the AdamW learning-rate scan; figures; collect the tables
                    and figures into results/dln/
@@ -82,6 +83,7 @@ DLN_CONFIGS = Path("configs/dln")
 DLN_RUNS = ["c1_gd", "c1_adamw", "c1_spectral", "c3_full_muon"]  # trained, then estimated; plot order
 # sweep -> kind of analysis (analyze_c2), None for a sweep whose summary.csv is the result
 DLN_SWEEPS = {"c2_ns_steps": "ns", "c2_weight_decay": "wd", "c2_momentum": "momentum", "c1_adamw_lr": None}
+DLN_B3_ARMS = ["A", "B", "C", "C2", "D", "D2"]  # configs/dln/b3_offset.yaml, one process per arm
 BENCHMARK_FILE = Path("runs/logs/benchmark.json")  # machine-local (runs/ is not committed)
 FALLBACK_DEVICE = {"train": "cpu", "sample": "auto"}  # used when no flag and no benchmark; see docstring
 DLN = "muon_llc.dln.experiments."
@@ -100,10 +102,15 @@ POST_LLC = ["--n-runs", "400", "--stride", "10"]
 
 QUICK_DLN_LLC = ["llc.nbeta_ladder.n=5", "llc.gamma_sweep=[1.0, 10.0, 100.0, 1000.0]", "llc.checkpoints={max: 8}",
                  "llc.sgld.n_chains=6", "llc.sgld.n_burnin=100", "llc.sgld.n_draws=400",
-                 "llc.mala.n_chains=6", "llc.mala.n_burnin=200", "llc.mala.n_draws=400", "llc.mala.n_boot=100"]
+                 "llc.mala.n_chains=6", "llc.mala.n_burnin=200", "llc.mala.n_draws=400", "llc.mala.n_boot=100",
+                 "llc.gibbs.n_chains=6", "llc.gibbs.n_burnin=50", "llc.gibbs.n_draws=150", "llc.gibbs.n_boot=100"]
 QUICK_DLN_B2 = ["static.ranks=[0, 2, 4]", "static.gammas=[1.0, 10.0, 100.0]", "static.nbeta_multipliers=[1.0]",
                 "llc.nbeta_ladder.n=5", "llc.mala.n_chains=6", "llc.mala.n_burnin=200", "llc.mala.n_draws=400",
-                "llc.mala.n_boot=100"]
+                "llc.mala.n_boot=100", "llc.gibbs.n_chains=6", "llc.gibbs.n_burnin=50", "llc.gibbs.n_draws=150",
+                "llc.gibbs.n_boot=100"]
+QUICK_DLN_B3 = ["static.ranks=[0, 2]", "static.nbeta_multipliers=[1.0]", "offset.n_chains=6",
+                *[f"offset.arms.{a}.{k}={v}" for a in DLN_B3_ARMS
+                  for k, v in (("n_burnin", 200), ("n_draws", 400), ("thin", 1))]]
 QUICK_DLN_STEPS = {"c1_gd": 8000, "c1_adamw": 2000, "c1_spectral": 2000, "c3_full_muon": 2000}
 QUICK_DLN_SWEEP = {
     "c2_ns_steps": ["train.steps=2000", "sweep.grid.optimizer.ns_steps=[1, 5]", "sweep.grid.data.kappa=[2, 32]"],
@@ -170,7 +177,12 @@ def stage_dln(c: Ctx) -> list[list[list[Step]]]:
                     ["--config", DLN_CONFIGS / f"{name}.yaml", "--runs-root", d, *sample_set,
                      *(QUICK_DLN_B2 if c.quick else [])],
                     [d / name / f for f in ("b2.csv", "b2_summary.txt", "b2_resolution.png")],
-                    device=c.sample_device) for name in ("b2_static", "b2_long")]]
+                    device=c.sample_device) for name in ("b2_static", "b2_long", "b2_gibbs")]]
+    b3 = ["--config", DLN_CONFIGS / "b3_offset.yaml", "--runs-root", d, *sample_set,
+          *(QUICK_DLN_B3 if c.quick else [])]
+    for arm in DLN_B3_ARMS:
+        chains.append([Step(f"b3_offset_{arm}", DLN + "offset_study", [*b3, "--arms", arm],
+                            [d / "b3_offset" / f"offset_{arm}.csv"], device=c.sample_device)])
     for name in DLN_RUNS:
         quick = [f"train.steps={QUICK_DLN_STEPS[name]}", "train.n_checkpoints=12", *QUICK_DLN_LLC] if c.quick else []
         chains.append([
@@ -193,7 +205,9 @@ def stage_dln(c: Ctx) -> list[list[list[Step]]]:
     plots = [Step("plot_c1", DLN + "plot_c1", ["--runs", d / "c1_gd", d / "c1_spectral", "--out", d / "c1"],
                   [d / "c1" / "singular_values.png"]),
              Step("plot_c3", DLN + "plot_c3", ["--runs", *[d / r for r in DLN_RUNS], "--out", d / "c3"],
-                  [d / "c3" / "singular_values.png"])]
+                  [d / "c3" / "singular_values.png"]),
+             Step("b3_offset_report", DLN + "offset_study", [*b3, "--report"],
+                  [d / "b3_offset" / "offset.csv", d / "b3_offset" / "offset_summary.txt"])]
     collect = Step("collect", DLN + "collect", ["--runs-root", d, "--out", c.res / "dln"],
                    [c.res / "dln" / "b2_static" / "b2.csv", c.res / "dln" / "c1" / "singular_values.png",
                     c.res / "dln" / "c2_ns_steps" / "summary.csv"])

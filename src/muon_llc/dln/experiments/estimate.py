@@ -1,6 +1,6 @@
 """Estimate the LLC at the checkpoints of a saved run.
 
-    uv run python -m muon_llc.dln.experiments.estimate --run runs/dln/c1_gd [--estimators sgld mala]
+    uv run python -m muon_llc.dln.experiments.estimate --run runs/dln/c1_gd [--estimators sgld gibbs]
         [--checkpoints all|max:12|every:2] [--resolution-sweep] [--gammas 1 10 100] [--device cuda]
 
 Writes llc.csv and ladder.csv into the run directory (overwriting unless --append).
@@ -43,7 +43,7 @@ def estimate_run(run: Path, estimators=None, ckpt_spec="all", resolution_sweep=F
     problem = build_problem(cfg)
     steps, thetas = load_checkpoints(run)
     llc_cfg = cfg["llc"]
-    estimators = estimators or llc_cfg.get("estimators", ["sgld", "mala"])
+    estimators = estimators or llc_cfg.get("estimators", ["sgld", "gibbs"])
     chosen = select_checkpoints(steps, ckpt_spec if ckpt_spec != "cfg" else llc_cfg.get("checkpoints", "all"))
     res_spec = res_ckpt_spec if res_ckpt_spec is not None else llc_cfg.get("resolution_sweep_checkpoints", "none")
     res_steps = set() if (not resolution_sweep and res_spec in (None, "none")) else set(

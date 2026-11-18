@@ -17,7 +17,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--runs", nargs="+", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--estimator", default="mala")
+    p.add_argument("--estimator", default=None)
     a = p.parse_args()
     make_c1_figures([Path(r) for r in a.runs], Path(a.out), a.estimator)
 

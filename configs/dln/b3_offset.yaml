@@ -1,0 +1,23 @@
+# B3: where the offset of the static calibration (B2) comes from. Same points as B2, sampled by
+# several arms that should agree if the chains are converged. See dln/experiments/offset_study.py.
+extends: base.yaml
+name: b3_offset
+dtype: float64            # removes single precision as a suspect (B2 runs in float32)
+static:
+  ranks: [0, 1, 2, 3, 4]
+  gammas: [0.1, 1.0]
+  nbeta_multipliers: [1.0, 10.0, 100.0]
+offset:
+  n_chains: 16
+  windows: 20
+  arms:
+    # A: the settings of the trajectory estimates and of b2_long
+    A: {sampler: mala, n_burnin: 2000, n_draws: 12000}
+    # B: thirty times longer, step size left to settle
+    B: {sampler: mala, n_burnin: 20000, n_draws: 400000, thin: 10, adapt_decay: 0.5}
+    # C, C2: as B but started off the centre, so the chains come down to the answer
+    C: {sampler: mala, n_burnin: 20000, n_draws: 400000, thin: 10, adapt_decay: 0.5, start_nbeta_dl: 100, seed: 1}
+    C2: {sampler: mala, n_burnin: 20000, n_draws: 400000, thin: 10, adapt_decay: 0.5, start_nbeta_dl: 3000, seed: 2}
+    # D, D2: block Gibbs, no step size; from the centre and off it
+    D: {sampler: gibbs, n_burnin: 5000, n_draws: 50000, thin: 5, seed: 3}
+    D2: {sampler: gibbs, n_burnin: 5000, n_draws: 50000, thin: 5, start_nbeta_dl: 100, seed: 4}

@@ -18,6 +18,7 @@ llc:
   resolution_sweep_checkpoints: all
   sgld: {eps: 5.0e-4, n_chains: 6, n_burnin: 100, n_draws: 400, batch_size: 128}
   mala: {eps0: 1.0e-3, n_chains: 6, n_burnin: 200, n_draws: 400, n_boot: 100}
+  gibbs: {n_chains: 6, n_burnin: 50, n_draws: 150, n_boot: 100}
 smoke:
   spectral_steps: 2000
   spectral_lr: 0.005

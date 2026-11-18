@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from ...config import set_dotted
+from ..llc import headline_estimator
 from ..theory.muon_scaling import predicted_final_singular_values
 from .common import base_parser, load, resolve_derived
 from .estimate import estimate_run
@@ -108,7 +109,7 @@ def run_sweep(cfg: dict, verbose: bool = True):
         row.update(run=str(d), depth=depth, lr=c["optimizer"]["lr"], diverged=False, **obs)
         if sw.get("llc", False):
             df, _ = estimate_run(d, ckpt_spec=sw.get("llc_checkpoints", {"max": 6}), verbose=False)
-            m = df[df["estimator"] == "mala"].sort_values("step")
+            m = df[df["estimator"] == headline_estimator(df["estimator"].unique())].sort_values("step")
             row["lambda_final"] = float(m["lambda_hat"].iloc[-1]) if len(m) else float("nan")
             row["lambda_final_err"] = float(m["err"].iloc[-1]) if len(m) else float("nan")
             # number of distinct plateaus: count jumps larger than 3σ between consecutive checkpoints

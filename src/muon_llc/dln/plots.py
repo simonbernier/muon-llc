@@ -138,7 +138,7 @@ def plot_lambda_family(runs: list[dict], out: Path, estimator: str = "mala", sta
     plt.close(fig)
 
 
-def plot_ladder(ladder: pd.DataFrame, out: Path, steps=None, title: str = "MALA β-ladder", ylim=None):
+def plot_ladder(ladder: pd.DataFrame, out: Path, steps=None, title: str = "β-ladder", ylim=None):
     """λ̂_WBIC(β) per checkpoint, with the Hessian soft-rank curve; flat = scale-free regime."""
     gam = ladder["gamma"].iloc[0]
     ladder = ladder[ladder["gamma"] == gam]
