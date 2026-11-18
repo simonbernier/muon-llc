@@ -23,7 +23,7 @@ estimate can be checked against theory before it is trusted.
 | Model | `W = W_3 W_2 W_1`, widths (8, 8, 8, 8), 192 parameters | `f(x) = ReLU(WᵀWx + b)`, W 2×6, 18 parameters |
 | Why | GD dynamics are closed-form (one singular value at a time); λ is known for every rank (Aoyagi 2024) | critical points are known k-gons; reproduces Chen et al. 2023 on dynamical vs Bayesian transitions |
 | Optimizers | GD, AdamW, spectral GD (idealised Muon), Muon, and one-ingredient-at-a-time ablations | SGD, AdamW, spectral GD, Muon (Muon on W, AdamW on b) |
-| SLT observables | λ̂(t) by SGLD, MALA β-ladder (λ and multiplicity), Hessian soft-rank, surrogate-target λ̂ | λ̂ on trajectories and at critical points (SGLD), NUTS posterior occupancy, free-energy crossings |
+| SLT observables | λ̂(t) by SGLD, exact Gibbs β-ladder (λ from the intercept), Hessian soft-rank, surrogate-target λ̂ | λ̂ on trajectories and at critical points (SGLD), NUTS posterior occupancy, free-energy crossings |
 | Report | [`results/dln/REPORT.md`](results/dln/REPORT.md) | [`results/tms/REPORT.md`](results/tms/REPORT.md) |
 
 ## Findings
@@ -46,8 +46,12 @@ Short version; the two reports have the tables, the figures and the limits.
   λ_wd^(−L) to four digits. Momentum does not change uniformity.
 - Not established: the learning coefficient of the training loss on a plateau (the plateau is a
   saddle, and the sampler either leaves it or is held too tightly to see the flat directions),
-  and absolute agreement with Aoyagi's values (the estimates read 1.5 low, and 2 low with
-  chains eight times shorter; the spacing between ranks is right to 0.4).
+  and a reading of λ itself at the temperature used (the estimates sit 0.4 to 0.9 below Aoyagi's
+  values at the weakest localisation and 1.3 to 1.5 below at γ = 1).
+- Calibration: an exact block Gibbs sampler confirms Aoyagi's values. The estimate approaches
+  them as the temperature rises, and the intercept of the ladder fit recovers them to 0.3.
+  MALA, used first, read a further 0.5 to 1.2 low because it does not converge on these
+  posteriors, and its convergence diagnostics did not show it. All DLN estimates now use Gibbs.
 
 **Toy model of superposition** ([report](results/tms/REPORT.md))
 
