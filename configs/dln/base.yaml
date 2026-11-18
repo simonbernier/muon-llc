@@ -24,7 +24,7 @@ train:
   verbose: false
 
 optimizer:                 # see muon_llc.optim.build_optimizer
-  name: gd                 # gd | spectral
+  name: gd                 # gd | adamw | spectral
   lr: 0.05
 
 llc:
@@ -37,9 +37,13 @@ llc:
   checkpoints: all         # all | {max: K} | {every: k} | [steps]
   resolution_sweep_checkpoints: all    # none | all | {max: K} | [steps]
   seed: 0
-  max_centres: 256         # (checkpoint, γ) pairs per MALA call; lower it if the GPU runs out of memory
+  max_centres: 64          # (checkpoint, γ) pairs per MALA call. The loss trace of a call is kept on the
+                           # device (64 pairs x 8 rungs x 16 chains x 14000 steps = 0.9 GB), and the noise
+                           # is drawn on the CPU, so larger calls are not faster per pair
   sgld: {eps: 5.0e-4, n_chains: 16, n_burnin: 200, n_draws: 1000, batch_size: 128}
-  mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 300, n_draws: 1000, target_accept: 0.574,
+  # chain length: with 300 + 1000 steps the estimate fell as nβ rose and read 2.0 below Aoyagi's
+  # values; 2000 + 12000 makes it independent of nβ up to 10x (results/dln/REPORT.md, B2)
+  mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 2000, n_draws: 12000, target_accept: 0.574,
          fit_min_var_over_mean: 0.0, n_boot: 200}
 
 wandb:

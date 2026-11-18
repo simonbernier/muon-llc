@@ -9,9 +9,10 @@
 
 Stages (run in this order whatever the order on the command line):
 
-    dln            B2 static calibration; C1 GD and spectral GD (train, estimate, figures); the
-                   three C2 sweeps and their analyses; C3 full Muon (train, estimate, figures);
-                   collect the tables and figures into results/dln/
+    dln            B2 static calibration (short and long chains); the four trained runs (C1 GD,
+                   AdamW and spectral GD, C3 full Muon: train, then estimate); the three C2 sweeps
+                   and their analyses, the AdamW learning-rate scan; figures; collect the tables
+                   and figures into results/dln/
     tms-arms       every optimizer arm of configs/tms/arms.json            -> runs/tms/arms/
     tms-llc        lambda-hat along the trajectories of the headline arms  -> runs/tms/arms/<arm>/llc.npz
     tms-k1         Table K.1 (lambda-hat at the known critical points)     -> results/tms/table_k1.csv
@@ -78,8 +79,9 @@ STAGES = ["dln", "tms-arms", "tms-llc", "tms-k1", "tms-posterior", "tms-analysis
 HEADLINE = ["sgd", "spectral_lr3e-4", "muon_lr3e-4", "adamw_lr3e-4"]
 ARMS_CONFIG = Path("configs/tms/arms.json")
 DLN_CONFIGS = Path("configs/dln")
-DLN_RUNS = ["c1_gd", "c1_spectral", "c3_full_muon"]
-DLN_SWEEPS = {"c2_ns_steps": "ns", "c2_weight_decay": "wd", "c2_momentum": "momentum"}
+DLN_RUNS = ["c1_gd", "c1_adamw", "c1_spectral", "c3_full_muon"]  # trained, then estimated; plot order
+# sweep -> kind of analysis (analyze_c2), None for a sweep whose summary.csv is the result
+DLN_SWEEPS = {"c2_ns_steps": "ns", "c2_weight_decay": "wd", "c2_momentum": "momentum", "c1_adamw_lr": None}
 BENCHMARK_FILE = Path("runs/logs/benchmark.json")  # machine-local (runs/ is not committed)
 FALLBACK_DEVICE = {"train": "cpu", "sample": "auto"}  # used when no flag and no benchmark; see docstring
 DLN = "muon_llc.dln.experiments."
@@ -102,13 +104,14 @@ QUICK_DLN_LLC = ["llc.nbeta_ladder.n=5", "llc.gamma_sweep=[1.0, 10.0, 100.0, 100
 QUICK_DLN_B2 = ["static.ranks=[0, 2, 4]", "static.gammas=[1.0, 10.0, 100.0]", "static.nbeta_multipliers=[1.0]",
                 "llc.nbeta_ladder.n=5", "llc.mala.n_chains=6", "llc.mala.n_burnin=200", "llc.mala.n_draws=400",
                 "llc.mala.n_boot=100"]
-QUICK_DLN_STEPS = {"c1_gd": 8000, "c1_spectral": 2000, "c3_full_muon": 2000}
+QUICK_DLN_STEPS = {"c1_gd": 8000, "c1_adamw": 2000, "c1_spectral": 2000, "c3_full_muon": 2000}
 QUICK_DLN_SWEEP = {
     "c2_ns_steps": ["train.steps=2000", "sweep.grid.optimizer.ns_steps=[1, 5]", "sweep.grid.data.kappa=[2, 32]"],
     "c2_weight_decay": ["train.steps=2000", "sweep.grid.optimizer.weight_decay=[0.5, 0.8, 1.2]",
                         "sweep.grid.model.depth=[3]", "sweep.grid.optimizer.lr=[0.003, 0.01]"],
     "c2_momentum": ["train.steps=2000", "sweep.grid.optimizer.momentum=[0.0, 0.95]",
                     "sweep.grid.model.init_scale=[0.01]", "sweep.grid.optimizer.lr=[0.003, 0.01]"],
+    "c1_adamw_lr": ["train.steps=2000", "sweep.grid.optimizer.lr=[0.003, 0.01]"],
 }
 QUICK_ARMS_SET = ["runs=16", "epochs=300"]
 QUICK_POST_SET = ["runs=32", "epochs=200", "seed=500", "data_seed=5000"]
@@ -159,38 +162,42 @@ def default_jobs() -> int:
 def stage_dln(c: Ctx) -> list[list[list[Step]]]:
     d = c.dln
     train_set = ["--set", f"device={c.train_device}"]
-    main = [Step("b2_static", DLN + "static_dln",
-                 ["--config", DLN_CONFIGS / "b2_static.yaml", "--runs-root", d, "--set", f"device={c.sample_device}",
-                  *(QUICK_DLN_B2 if c.quick else [])],
-                 [d / "b2_static" / f for f in ("b2.csv", "b2_summary.txt", "b2_resolution.png")],
-                 device=c.sample_device)]
+    sample_set = ["--set", f"device={c.sample_device}"]
+    # the two calibrations one after the other; each trained run is its own chain (train, then
+    # estimate), so the estimates share the GPU: a sampler step is bound by drawing its noise on
+    # the CPU, one core per process
+    chains = [[Step(f"{name}", DLN + "static_dln",
+                    ["--config", DLN_CONFIGS / f"{name}.yaml", "--runs-root", d, *sample_set,
+                     *(QUICK_DLN_B2 if c.quick else [])],
+                    [d / name / f for f in ("b2.csv", "b2_summary.txt", "b2_resolution.png")],
+                    device=c.sample_device) for name in ("b2_static", "b2_long")]]
     for name in DLN_RUNS:
         quick = [f"train.steps={QUICK_DLN_STEPS[name]}", "train.n_checkpoints=12", *QUICK_DLN_LLC] if c.quick else []
-        main.append(Step(f"train_{name}", DLN + "train",
-                         ["--config", DLN_CONFIGS / f"{name}.yaml", "--runs-root", d, *train_set, *quick],
-                         [d / name / f for f in ("config.json", "trajectory.csv", "checkpoints.npz")],
-                         device=c.train_device))
-    for name in DLN_RUNS:
-        main.append(Step(f"estimate_{name}", DLN + "estimate", ["--run", d / name, "--device", c.sample_device],
-                         [d / name / "llc.csv", d / name / "ladder.csv"], device=c.sample_device))
-    main.append(Step("plot_c1", DLN + "plot_c1", ["--runs", d / "c1_gd", d / "c1_spectral", "--out", d / "c1"],
-                     [d / "c1" / "singular_values.png"]))
-    main.append(Step("plot_c3", DLN + "plot_c3", ["--runs", *[d / r for r in DLN_RUNS], "--out", d / "c3"],
-                     [d / "c3" / "singular_values.png"]))
-    chains = [main]
-    for name, kind in DLN_SWEEPS.items():  # training only; the three sweeps run next to the main chain
         chains.append([
-            Step(f"sweep_{name}", DLN + "sweep",
-                 ["--config", DLN_CONFIGS / f"{name}.yaml", "--runs-root", d, *train_set,
-                  *(QUICK_DLN_SWEEP[name] if c.quick else [])],
-                 [d / name / "summary.csv"], device=c.train_device),
-            Step(f"analyze_{name}", DLN + "analyze_c2", ["--sweep", d / name, "--kind", kind],
-                 [d / name / f"{kind}_summary.txt"]),
+            Step(f"train_{name}", DLN + "train",
+                 ["--config", DLN_CONFIGS / f"{name}.yaml", "--runs-root", d, *train_set, *quick],
+                 [d / name / f for f in ("config.json", "trajectory.csv", "checkpoints.npz")],
+                 device=c.train_device),
+            Step(f"estimate_{name}", DLN + "estimate", ["--run", d / name, "--device", c.sample_device],
+                 [d / name / "llc.csv", d / name / "ladder.csv"], device=c.sample_device),
         ])
+    for name, kind in DLN_SWEEPS.items():  # training only
+        chain = [Step(f"sweep_{name}", DLN + "sweep",
+                      ["--config", DLN_CONFIGS / f"{name}.yaml", "--runs-root", d, *train_set,
+                       *(QUICK_DLN_SWEEP[name] if c.quick else [])],
+                      [d / name / "summary.csv"], device=c.train_device)]
+        if kind is not None:
+            chain.append(Step(f"analyze_{name}", DLN + "analyze_c2", ["--sweep", d / name, "--kind", kind],
+                              [d / name / f"{kind}_summary.txt"]))
+        chains.append(chain)
+    plots = [Step("plot_c1", DLN + "plot_c1", ["--runs", d / "c1_gd", d / "c1_spectral", "--out", d / "c1"],
+                  [d / "c1" / "singular_values.png"]),
+             Step("plot_c3", DLN + "plot_c3", ["--runs", *[d / r for r in DLN_RUNS], "--out", d / "c3"],
+                  [d / "c3" / "singular_values.png"])]
     collect = Step("collect", DLN + "collect", ["--runs-root", d, "--out", c.res / "dln"],
                    [c.res / "dln" / "b2_static" / "b2.csv", c.res / "dln" / "c1" / "singular_values.png",
                     c.res / "dln" / "c2_ns_steps" / "summary.csv"])
-    return [chains, [[collect]]]
+    return [chains, [plots], [[collect]]]
 
 
 def stage_tms_arms(c: Ctx) -> list[list[list[Step]]]:
@@ -472,7 +479,7 @@ def benchmark(jobs: int) -> dict:
 
     # DLN training: the three trained runs and the sweeps, grouped by update rule
     def dln_kind(opt: dict) -> str:
-        return "gd" if opt["name"] == "gd" else f"spectral ({opt.get('orth', 'exact')})"
+        return opt["name"] if opt["name"] in ("gd", "adamw") else f"spectral ({opt.get('orth', 'exact')})"
 
     dln_steps: dict[str, int] = {}
     dln_cfg: dict[str, dict] = {}

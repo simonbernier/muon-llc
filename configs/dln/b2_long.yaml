@@ -1,0 +1,9 @@
+# B2 with chains eight times longer (the length the trajectory estimates use). At 10x nbeta the
+# short chains of b2_static.yaml read up to 4.6 lower than these: the step size shrinks with
+# nbeta and a short chain does not cover the directions in which the loss is flat.
+extends: b2_static.yaml
+name: b2_long
+static:
+  nbeta_multipliers: [1.0, 10.0]
+llc:
+  mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 2000, n_draws: 12000}

@@ -1,7 +1,8 @@
-"""C3: λ̂(t) for full Muon vs GD vs spectral GD on one figure (plus singular values).
+"""C3: λ̂(t) for every trained optimizer on one figure (GD, AdamW, spectral GD, full Muon), plus
+singular values.
 
     uv run python -m muon_llc.dln.experiments.plot_c3 \
-        --runs runs/dln/c1_gd runs/dln/c1_spectral runs/dln/c3_full_muon --out runs/dln/c3
+        --runs runs/dln/c1_gd runs/dln/c1_adamw runs/dln/c1_spectral runs/dln/c3_full_muon --out runs/dln/c3
 """
 
 from __future__ import annotations

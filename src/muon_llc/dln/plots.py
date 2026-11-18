@@ -18,6 +18,8 @@ def label_for(optimizer_cfg: dict) -> tuple[str, str]:
     """(display label, colour key) for an optimizer config."""
     if optimizer_cfg.get("name") == "gd":
         return "GD", "gd"
+    if optimizer_cfg.get("name") == "adamw":
+        return "AdamW", "adamw"
     mom = optimizer_cfg.get("momentum", 0)
     orth, wd = optimizer_cfg.get("orth", "exact"), optimizer_cfg.get("weight_decay", 0)
     if mom == 0 and orth == "exact" and wd == 0:

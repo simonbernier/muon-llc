@@ -1,0 +1,18 @@
+# AdamW learning-rate scan (training only): does the order in which the singular values are
+# learned depend on the learning rate? Observables as in the C2 sweeps (sweep.py).
+extends: base.yaml
+name: c1_adamw_lr
+optimizer:
+  name: adamw
+  lr: 0.003
+  betas: [0.9, 0.999]
+  weight_decay: 0.0
+train:
+  steps: 4000
+  log_every: 5
+  n_checkpoints: 12
+  extra_checkpoints: []
+sweep:
+  grid:
+    optimizer.lr: [0.001, 0.003, 0.005, 0.01]
+  llc: false

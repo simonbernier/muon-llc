@@ -59,3 +59,16 @@ def test_scaling_law_helpers():
     assert np.allclose(predicted_final_singular_values([4, 2, 1, 0.5], 1.0, 3), [1, 1, 1, 0.5])
     b, A, r2 = fit_loglog([1, 2, 4, 8], [3, 12, 48, 192])
     assert np.isclose(b, 2.0) and np.isclose(A, 3.0) and r2 > 0.999
+
+
+def test_adamw_has_no_closed_form_prediction():
+    """AdamW runs train and plot without a predicted trajectory (checkpoints are log-spaced only)."""
+    from muon_llc.config import load_config
+    from muon_llc.dln.experiments.common import predicted_event_times, predicted_trajectory
+    from muon_llc.dln.plots import label_for
+
+    cfg = load_config("configs/dln/c1_adamw.yaml")
+    assert predicted_trajectory(cfg) is None
+    assert predicted_event_times(cfg) == []
+    assert label_for(cfg["optimizer"]) == ("AdamW", "adamw")
+    assert predicted_trajectory(load_config("configs/dln/c1_spectral.yaml")) is not None

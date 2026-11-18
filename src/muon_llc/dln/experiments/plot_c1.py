@@ -1,5 +1,5 @@
-"""C1 figures: λ̂(t) for GD vs spectral GD with the Aoyagi staircase and A4 predictions, the
-product singular values, the β-ladder, and (if present) the resolution sweep.
+"""C1 figures: λ̂(t) for the given runs (GD vs spectral GD) with the Aoyagi staircase and, where
+the theory has one, the A4 prediction; the product singular values, the β-ladder, and (if present) the resolution sweep.
 
     uv run python -m muon_llc.dln.experiments.plot_c1 --runs runs/dln/c1_gd runs/dln/c1_spectral --out runs/dln/c1
 """
@@ -48,8 +48,9 @@ def make_c1_figures(run_dirs: list[Path], out: Path, estimator: str = "mala"):
         label, ckey = label_for(cfg["optimizer"])
         color = SERIES[ckey]
         tr = load_trajectory(rd)
-        pt, ps = predicted_trajectory(cfg)
-        preds[label] = (pt, ps)
+        pred = predicted_trajectory(cfg)  # None for an optimizer without a closed-form prediction
+        if pred is not None:
+            preds[label] = pred
         runs_sv.append(dict(label=label, color=color, trajectory=tr))
         if staircase is None:
             widths = cfg["model"]["widths"]
@@ -59,9 +60,11 @@ def make_c1_figures(run_dirs: list[Path], out: Path, estimator: str = "mala"):
         if llc_path.exists():
             df = load_llc(rd)
             thr = resolution_threshold(cfg)
-            lam_pred = predicted_lambda_curve(pt, ps, thr, cfg["model"]["widths"])
+            lam_pred = None
+            if pred is not None:
+                lam_pred = (pred[0], predicted_lambda_curve(pred[0], pred[1], thr, cfg["model"]["widths"]))
             runs_lam.append(dict(label=label, color=color, llc=df, gamma=float(cfg["llc"]["gamma"]),
-                                 pred=(pt, lam_pred)))
+                                 pred=lam_pred))
             lad_path = rd / "ladder.csv"
             if lad_path.exists():
                 lad = pd.read_csv(lad_path)

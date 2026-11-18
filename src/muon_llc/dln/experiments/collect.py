@@ -8,12 +8,15 @@ it (tables, summaries, resolved configs, figures):
 
     results/dln/
         b2_static/         b2.csv, b2_ladder.csv, b2_summary.txt, b2_resolution.png, config.json
+        b2_long/           the same with long chains
         c1_gd/             config.json, trajectory.csv, llc.csv, ladder.csv      (one per trained run:
-        c1_spectral/         c1_gd, c1_spectral, c3_full_muon)
+        c1_adamw/            c1_gd, c1_adamw, c1_spectral, c3_full_muon)
+        c1_spectral/
         c3_full_muon/
+        c1_adamw_lr/       summary.csv (AdamW learning-rate scan, training only)
         c1/                C1 figures (plot_c1): singular_values.png, c1_overlay_*.png, c1_family_*.png,
                            ladder_*.png, resolution_*.png
-        c3/                the same figures with full Muon added (plot_c3)
+        c3/                the same figures for all four optimizers (plot_c3)
         c2_ns_steps/       summary.csv, ns_breakdown.csv, ns_summary.txt, ns_*.png
         c2_weight_decay/   summary.csv, wd_summary.txt, wd_cap*.png
         c2_momentum/       summary.csv, momentum_summary.txt, momentum_*.png
@@ -32,8 +35,8 @@ from pathlib import Path
 
 KEEP_SUFFIXES = {".csv", ".txt", ".json", ".png", ".pdf", ".svg"}
 SKIP_DIRS = {"smoke"}
-EXPECTED = ["b2_static", "c1_gd", "c1_spectral", "c1", "c2_ns_steps", "c2_weight_decay", "c2_momentum",
-            "c3_full_muon", "c3"]
+EXPECTED = ["b2_static", "b2_long", "c1_gd", "c1_adamw", "c1_spectral", "c1", "c1_adamw_lr", "c2_ns_steps",
+            "c2_weight_decay", "c2_momentum", "c3_full_muon", "c3"]
 
 
 def collect(runs_root: Path, out: Path, skip=SKIP_DIRS, verbose: bool = True) -> dict[str, list[str]]:

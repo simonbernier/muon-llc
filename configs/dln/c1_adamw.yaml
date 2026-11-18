@@ -1,0 +1,15 @@
+# C1(c): AdamW, the adaptive baseline. Adam normalises each coordinate of the gradient, not each
+# singular direction, so there is no closed-form prediction; checkpoints are log-spaced only.
+# lr 0.003 is the middle of the range scanned in c1_adamw_lr.yaml (all of it learns the singular
+# values in the same order).
+extends: base.yaml
+name: c1_adamw
+optimizer:
+  name: adamw
+  lr: 0.003
+  betas: [0.9, 0.999]
+  weight_decay: 0.0
+train:
+  steps: 4000
+  n_checkpoints: 56
+  extra_checkpoints: []

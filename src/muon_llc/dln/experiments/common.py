@@ -65,8 +65,11 @@ def effective_alpha(cfg: dict) -> float:
 
 
 def predicted_trajectory(cfg: dict, steps: int | None = None):
-    """(steps, s_pred) from theory/dynamics for this config's optimizer."""
+    """(steps, s_pred) from theory/dynamics for this config's optimizer; None where the theory has
+    no prediction (AdamW)."""
     opt = cfg["optimizer"]
+    if opt["name"] == "adamw":
+        return None
     steps = int(cfg["train"]["steps"]) if steps is None else steps
     L = len(cfg["model"]["widths"]) - 1
     alpha = effective_alpha(cfg)
@@ -78,7 +81,10 @@ def predicted_trajectory(cfg: dict, steps: int | None = None):
 
 
 def predicted_event_times(cfg: dict) -> list[float]:
+    """Steps at which each singular value is predicted to be learned ([] without a prediction)."""
     opt = cfg["optimizer"]
+    if opt["name"] == "adamw":
+        return []
     L = len(cfg["model"]["widths"]) - 1
     alpha = effective_alpha(cfg)
     s = cfg["data"]["singular_values"]

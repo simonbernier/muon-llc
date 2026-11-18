@@ -9,4 +9,6 @@ static:
                                         # the estimate should converge to Aoyagi as gamma/nbeta -> 0
 llc:
   estimators: [mala]
+  # short chains, kept as the reference for what chain length does; b2_long.yaml is the same
+  # calibration at the length the trajectory estimates use
   mala: {eps0: 1.0e-3, n_chains: 16, n_burnin: 400, n_draws: 1500}
