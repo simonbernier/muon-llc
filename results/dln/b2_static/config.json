@@ -58,7 +58,7 @@
     "checkpoints": "all",
     "resolution_sweep_checkpoints": "all",
     "seed": 0,
-    "max_centres": 256,
+    "max_centres": 64,
     "sgld": {
       "eps": 0.0005,
       "n_chains": 16,

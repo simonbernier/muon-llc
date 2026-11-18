@@ -60,7 +60,7 @@
     "checkpoints": "all",
     "resolution_sweep_checkpoints": "all",
     "seed": 0,
-    "max_centres": 256,
+    "max_centres": 64,
     "sgld": {
       "eps": 0.0005,
       "n_chains": 16,
@@ -71,8 +71,8 @@
     "mala": {
       "eps0": 0.001,
       "n_chains": 16,
-      "n_burnin": 300,
-      "n_draws": 1000,
+      "n_burnin": 2000,
+      "n_draws": 12000,
       "target_accept": 0.574,
       "fit_min_var_over_mean": 0.0,
       "n_boot": 200

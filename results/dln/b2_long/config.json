@@ -1,6 +1,6 @@
 {
   "name": "b2_long",
-  "runs_root": "runs/dln",
+  "runs_root": "runs\\dln",
   "device": "cuda",
   "dtype": "float32",
   "model": {
@@ -58,7 +58,7 @@
     "checkpoints": "all",
     "resolution_sweep_checkpoints": "all",
     "seed": 0,
-    "max_centres": 256,
+    "max_centres": 64,
     "sgld": {
       "eps": 0.0005,
       "n_chains": 16,
@@ -90,7 +90,12 @@
     ],
     "gammas": [
       0.1,
-      1.0
+      0.3,
+      1.0,
+      3.0,
+      10.0,
+      30.0,
+      100.0
     ],
     "nbeta_multipliers": [
       1.0,

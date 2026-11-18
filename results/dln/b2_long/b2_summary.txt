@@ -1,6 +1,11 @@
 mean |lambda_hat - lambda_Aoyagi| over ranks, by gamma (MALA, nbeta = n/log n)
 gamma
-0.1    1.608779
-1.0    1.705469
+0.1       1.488896
+0.3       1.573590
+1.0       1.685218
+3.0       2.703509
+10.0      6.033420
+30.0     11.018010
+100.0    14.667833
 
 recommended gamma: 0.1
